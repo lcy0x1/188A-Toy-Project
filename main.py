@@ -1,61 +1,64 @@
 import math
-import time
 
 
-class Solver:
-    class State:
-        def __init__(self, vs, mat):
-            self.vs = vs
-            self.mat = mat
+class Solver(object):
+    class State(object):
+        def __init__(self, vs: list[int], mat: list[int]):
+            self.veh_vec = vs
+            self.queue_vec = mat
 
-    class StateStorage:
+    class StateStorage(object):
 
-        def __init__(self, env):
-            self.env = env
-            self.state = None
-            self.car_state_count = 0
-            self.car_states = []
-            self.car_state_map = []
-            self.q_space = []
+        def __init__(self, env, state):
+            self.env: Solver = env
+            self.state: Solver.State = state
+            self.veh_state_count = 0
+            self.veh_states: list[list[int]] = []
+            self.veh_state_map: list[int] = []
+            self.gen_vehicle_state()
+            self.q_space = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
 
-        def gen_car_state(self):
-            car = [0 for _ in range(self.env.nn * (self.env.nn - 1))]
+        # since it's difficult to calculate compact vehicle motion action ID,
+        # I find a sparse ID (product of (vehicle at each node + 1)) and map it to compact ID
+        def gen_vehicle_state(self):
+            veh_vec = [0 for _ in range(self.env.n_node * (self.env.n_node - 1))]
+            full_veh_pos = [0 for _ in range(self.env.n_node)]
+            remain = self.env.n_veh
+            for k in range(self.env.n_node - 1):
+                full_veh_pos[k] = self.state.veh_vec[k]
+                remain = remain - full_veh_pos[k]
+            full_veh_pos[self.env.n_node - 1] = remain
 
-            vs = [0 for _ in range(self.env.nn)]
-            rem = self.env.nv
-            for k in range(self.env.nn - 1):
-                vs[k] = self.state.vs[k]
-                rem = rem - vs[k]
-            vs[self.env.nn - 1] = rem
+            n_sparse = 1
+            for k in full_veh_pos:
+                n_sparse = n_sparse * (k + 1) ** (self.env.n_node - 1)
+            self.veh_state_map = [0 for _ in range(n_sparse)]
 
-            n = 1
-            for k in vs:
-                n = n * (k + 1) ** (self.env.nn - 1)
-            self.car_state_map = [0 for _ in range(n)]
-
-            def rec_v(val, ind):
-                if ind == self.env.nn:
-                    self.car_states.append(car.copy())
-                    self.car_state_map[val] = self.car_state_count
-                    self.car_state_count = self.car_state_count + 1
+            def rec_i(state_veh_i: int, ind_i: int):
+                if ind_i == self.env.n_node:
+                    self.veh_states.append(veh_vec.copy())
+                    self.veh_state_map[state_veh_i] = self.veh_state_count
+                    self.veh_state_count = self.veh_state_count + 1
                     return
-                veh = vs[ind]
+                veh = full_veh_pos[ind_i]
 
-                def rec_vv(vjl, rjm, jnd):
-                    if jnd == self.env.nn - 1:
-                        rec_v(vjl, ind + 1)
+                def rec_j(state_veh_j: int, remain_j: int, ind_j: int):
+                    if ind_j == self.env.n_node - 1:
+                        rec_i(state_veh_j, ind_i + 1)
                         return
-                    for i in range(rjm + 1):
-                        car[ind * (self.env.nn - 1) + jnd] = i
-                        rec_vv(vjl * (veh + 1) + i, rjm - i, jnd + 1)
+                    for i in range(remain_j + 1):
+                        veh_vec[ind_i * (self.env.n_node - 1) + ind_j] = i
+                        rec_j(state_veh_j * (veh + 1) + i, remain_j - i, ind_j + 1)
 
-                rec_vv(val, veh, 0)
+                rec_j(state_veh_i, veh, 0)
 
-            rec_v(0, 0)
+            rec_i(0, 0)
 
-        def update(self, car, ind, val):
+        # TODO: replace by heap-array
+        def update(self, car: int, ind: int, val: int):
             self.q_space[car][ind] = val
 
+        # TODO: replace by heap-array
         def get_max(self):
             ans = self.q_space[0][0]
             for i0 in self.q_space:
@@ -64,79 +67,89 @@ class Solver:
                         ans = i1
             return ans
 
+        # 1. iterate through all possible motion of vehicle
+        # 2. iterate through all possible price
+        # 3. iterate through all possible transition
         def iterate(self):
-            n = self.env.nn * (self.env.nn - 1)
-            cmat = self.state.mat.copy()
-            action = [0 for _ in range(n)]
-            car = [0 for _ in range(self.env.nn * (self.env.nn - 1))]
-            vs = [0 for _ in range(self.env.nn)]
-            rem = self.env.nv
-            for k in range(self.env.nn - 1):
-                vs[k] = self.state.vs[k]
-                rem = rem - vs[k]
-            vs[self.env.nn - 1] = rem
-            cvs = vs.copy()  # vehicle of next state
+            # number of OD pairs
+            n_od = self.env.n_node * (self.env.n_node - 1)
+            # current queue state vector modified throughout recursion
+            cur_queue_vec = self.state.queue_vec.copy()
+            # current action vector of price modified throughout recursion
+            act_price = [0 for _ in range(n_od)]
+            # current vehicle movement vector modified throughout recursion
+            act_veh = [0 for _ in range(self.env.n_node * (self.env.n_node - 1))]
+            # full vehicle position vector, immutable
+            full_veh_vec = [0 for _ in range(self.env.n_node)]
+            remain = self.env.n_veh
+            for k in range(self.env.n_node - 1):
+                full_veh_vec[k] = self.state.veh_vec[k]
+                remain = remain - full_veh_vec[k]
+            full_veh_vec[self.env.n_node - 1] = remain
+            # current vehicle position vector, modified throught recursion
+            cur_veh_vec = full_veh_vec.copy()
 
             # iterate through transition
-            def rec_poi(ind):
-                if ind == n:
-                    return self.env.decay * self.env.get_state(self.env.State(cvs, cmat)).get_max()
+            def rec_poisson(ind_od):
+                if ind_od == n_od:
+                    return self.env.decay * self.env.get_state(self.env.State(cur_veh_vec, cur_queue_vec)).get_max()
                 ans = 0
-                for i in range(self.env.npoi + 1):
-                    val = min(self.env.nq - cmat[ind], i)
-                    cmat[ind] = cmat[ind] + val
-                    gain = rec_poi(ind + 1) + val * action[ind] - (i - val) * self.env.overflow
-                    ans = ans + self.env.get_prob(action[ind], i) * gain
-                    cmat[ind] = cmat[ind] - val
+                for i in range(self.env.n_poi + 1):
+                    coming = min(self.env.n_queue - cur_queue_vec[ind_od], i)
+                    cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + coming
+                    gain = rec_poisson(ind_od + 1) + coming * act_price[ind_od] - (i - coming) * self.env.overflow
+                    ans = ans + self.env.get_prob(act_price[ind_od], i) * gain
+                    cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - coming
                 return ans
 
             # iterate through price setting action
-            def rec_q(car_ind, act_ind, ind, cost):
-                if ind == n:
-                    self.update(car_ind, act_ind, rec_poi(0) - cost)
+            def rec_act_price(state_act_veh, state_act_queue, ind_od, cost):
+                if ind_od == n_od:
+                    self.update(state_act_veh, state_act_queue, rec_poisson(0) - cost)
                     return
-                for i in range(self.env.np + 1):
-                    action[ind] = i
-                    rec_q(car_ind, act_ind * (self.env.np + 1) + i, ind + 1, cost)
+                for i in range(self.env.n_price + 1):
+                    act_price[ind_od] = i
+                    rec_act_price(state_act_veh, state_act_queue * (self.env.n_price + 1) + i, ind_od + 1, cost)
 
-            def rec_v(car_ind, ind, cost):
-                if ind == self.env.nn:
-                    rec_q(self.car_state_map[car_ind], 0, 0, cost)
+            def rec_act_veh_i(state_act_veh_i, ind_veh_i, cost_i):
+                if ind_veh_i == self.env.n_node:
+                    rec_act_price(self.veh_state_map[state_act_veh_i], 0, 0, cost_i)
                     return
-                veh = vs[ind]
+                veh = full_veh_vec[ind_veh_i]
 
-                def rec_vv(vjl, rjm, jnd, cost):
-                    if jnd == self.env.nn - 1:
-                        rec_v(vjl, ind + 1, cost)
+                def rec_act_veh_j(state_act_veh_j, rem_j, ind_veh_j, cost_j):
+                    if ind_veh_j == self.env.n_node - 1:
+                        rec_act_veh_i(state_act_veh_j, ind_veh_i + 1, cost_j)
                         return
-                    for i in range(rjm + 1):
-                        ci = ind
-                        cj = jnd
-                        if jnd >= ind:
-                            cj = cj + 1
-                        mi = ind * (self.env.nn - 1) + jnd
-                        car[mi] = i
-                        cvs[ci] = cvs[ci] - i
-                        cvs[cj] = cvs[cj] + i
-                        vmi = min(i, cmat[mi])
-                        cmat[mi] = cmat[mi] - vmi
-                        t_cost = cost + i * self.env.cost + cmat[mi] * self.env.penalty
-                        rec_vv(vjl * (veh + 1) + i, rjm - i, jnd + 1, t_cost)
-                        cvs[ci] = cvs[ci] + i
-                        cvs[cj] = cvs[cj] - i
-                        cmat[mi] = cmat[mi] + vmi
+                    for i in range(rem_j + 1):
+                        node_i = ind_veh_i
+                        node_j = ind_veh_j
+                        if ind_veh_j >= ind_veh_i:
+                            node_j = node_j + 1
+                        ind_od = ind_veh_i * (self.env.n_node - 1) + ind_veh_j
+                        act_veh[ind_od] = i
+                        cur_veh_vec[node_i] = cur_veh_vec[node_i] - i
+                        cur_veh_vec[node_j] = cur_veh_vec[node_j] + i
+                        vmi = min(i, cur_queue_vec[ind_od])
+                        cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - vmi
+                        t_cost = cost_j + i * self.env.cost + cur_queue_vec[ind_od] * self.env.penalty
+                        rec_act_veh_j(state_act_veh_j * (veh + 1) + i, rem_j - i, ind_veh_j + 1, t_cost)
+                        cur_veh_vec[node_i] = cur_veh_vec[node_i] + i
+                        cur_veh_vec[node_j] = cur_veh_vec[node_j] - i
+                        cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + vmi
 
-                rec_vv(car_ind, veh, 0, cost)
+                rec_act_veh_j(state_act_veh_i, veh, 0, cost_i)
 
-            rec_v(0, 0, 0)
+            rec_act_veh_i(0, 0, 0)
 
-    def __init__(self, nv, nn, nq, np, poi, npoi, cost, penalty, overflow, decay):
-        self.nv = nv
-        self.nn = nn
-        self.nq = nq
-        self.np = np
+    def __init__(self, nv: int, nn: int, nq: int, np: int, poi: float, npoi: int, cost: float, penalty: float,
+                 overflow: float, decay: float):
+        self.n_veh = nv
+        self.n_node = nn
+        self.n_queue = nq
+        self.n_price = np
         self.poi = poi
-        self.npoi = npoi
+        self.n_poi = npoi
         self.cost = cost
         self.penalty = penalty
         self.overflow = overflow
@@ -147,10 +160,10 @@ class Solver:
         self.gen_car_state()
         self.prob_cache = [[0 for _ in range(npoi + 1)] for _ in range(np + 1)]
         self.gen_prob_cache()
-        self.queue_size = (self.nq + 1) ** (self.nn * (self.nn - 1))
-        self.action_size = (self.np + 1) ** (self.nn * (self.nn - 1))
-        self.transition_size = (self.npoi + 1) ** (self.nn * (self.nn - 1))
-        self.queue_states = [0 for _ in range(self.queue_size)]
+        self.queue_size = (self.n_queue + 1) ** (self.n_node * (self.n_node - 1))
+        self.action_size = (self.n_price + 1) ** (self.n_node * (self.n_node - 1))
+        self.transition_size = (self.n_poi + 1) ** (self.n_node * (self.n_node - 1))
+        self.queue_states = [[] for _ in range(self.queue_size)]
         self.gen_queue_states()
         self.old_state_space = self.gen_state_space()
         self.new_state_space = self.gen_state_space()
@@ -163,47 +176,47 @@ class Solver:
         for s0 in self.old_state_space:
             for s1 in s0:
                 count = count + 1
-                ans = ans + s1.car_state_count
+                ans = ans + s1.veh_state_count
         return count, ans * self.action_size, ans * self.action_size * self.transition_size
 
-    def get_car_id(self, vec):
+    def get_car_id(self, vec: list[int]):
         ans = 0
-        rem = self.nv
-        for i in range(self.nn - 1):
+        rem = self.n_veh
+        for i in range(self.n_node - 1):
             rem = rem - vec[i]
-            ans = ans * (self.nv + 1) + vec[i]
+            ans = ans * (self.n_veh + 1) + vec[i]
         return ans
 
-    def get_queue_id(self, q_mat):
+    def get_queue_id(self, q_mat: list[int]):
         ans = 0
         for i in q_mat:
-            ans = ans * (self.nq + 1) + i
+            ans = ans * (self.n_queue + 1) + i
         return ans
 
     # get StateStorage from State
     def get_state(self, state: State):
-        car_id = self.car_state_map[self.get_car_id(state.vs)]
-        queue_id = self.get_queue_id(state.mat)
+        car_id = self.car_state_map[self.get_car_id(state.veh_vec)]
+        queue_id = self.get_queue_id(state.queue_vec)
         return self.old_state_space[car_id][queue_id]
 
     # get probability to get number of new passengers 0~self.npoi with price level 0~self.np
-    def get_prob(self, price, request):
+    def get_prob(self, price: int, request: int):
         return self.prob_cache[price][request]
 
     def gen_car_state(self):
-        vec = [0 for _ in range(self.nn - 1)]
+        vec = [0 for _ in range(self.n_node - 1)]
 
         def rec(val, ind, rem):
-            if ind == self.nn - 1:
+            if ind == self.n_node - 1:
                 self.car_state_map[val] = self.car_state_count
                 self.car_states.append(vec.copy())
                 self.car_state_count = self.car_state_count + 1
                 return
             for i in range(rem + 1):
                 vec[ind] = i
-                rec(val * (self.nv + 1) + i, ind + 1, rem - i)
+                rec(val * (self.n_veh + 1) + i, ind + 1, rem - i)
 
-        rec(0, 0, self.nv)
+        rec(0, 0, self.n_veh)
 
     def gen_prob_cache(self):
         def get_prob(price, v):
@@ -212,38 +225,33 @@ class Solver:
                     return 1
                 return k * fact(k - 1)
 
-            lbd = self.poi * (self.np - price) / (self.np + 1)
+            lbd = self.poi * (self.n_price - price) / (self.n_price + 1)
             return lbd ** v * math.exp(-lbd) / fact(v)
 
-        for p in range(self.np + 1):
+        for p in range(self.n_price + 1):
             rem = 1
-            for req in range(self.npoi):
+            for req in range(self.n_poi):
                 val = get_prob(p, req)
                 rem = rem - val
                 self.prob_cache[p][req] = val
-            self.prob_cache[p][self.npoi] = rem
+            self.prob_cache[p][self.n_poi] = rem
 
     def gen_queue_states(self):
-        vec = [0 for _ in range(self.nn * (self.nn - 1))]
+        vec = [0 for _ in range(self.n_node * (self.n_node - 1))]
 
         def rec(ind):
-            if ind == self.nn * (self.nn - 1):
+            if ind == self.n_node * (self.n_node - 1):
                 self.queue_states[self.get_queue_id(vec)] = vec.copy()
                 return
-            for i in range(self.nq + 1):
+            for i in range(self.n_queue + 1):
                 vec[ind] = i
                 rec(ind + 1)
 
         rec(0)
 
     def gen_state_space(self):
-        ans = [[self.StateStorage(self) for _ in range(self.queue_size)] for _ in
-               range(self.car_state_count)]
-        for i in range(self.car_state_count):
-            for j in range(self.queue_size):
-                ans[i][j].state = self.State(self.car_states[i], self.queue_states[j])
-                ans[i][j].gen_car_state()
-                ans[i][j].q_space = [[0 for _ in range(self.action_size)] for _ in range(ans[i][j].car_state_count)]
+        ans = [[self.StateStorage(self, self.State(self.car_states[i], self.queue_states[j])) for j in
+                range(self.queue_size)] for i in range(self.car_state_count)]
         return ans
 
 
@@ -280,11 +288,11 @@ if __name__ == '__main__':
     ite = 0
     while True:
         maxv = 0
-        for s0 in solv.new_state_space:
-            for s1 in s0:
-                s1.iterate()
-                if maxv < s1.get_max():
-                    maxv = s1.get_max()
+        for v0 in solv.new_state_space:
+            for v1 in v0:
+                v1.iterate()
+                if maxv < v1.get_max():
+                    maxv = v1.get_max()
         temp = solv.new_state_space
         solv.new_state_space = solv.old_state_space
         solv.old_state_space = solv.new_state_space
@@ -293,6 +301,6 @@ if __name__ == '__main__':
         if maxv - prev < epsilon:
             break
         prev = maxv
-    for s0 in solv.old_state_space:
-        for s1 in s0:
-            print(s1.q_space)
+    for v0 in solv.old_state_space:
+        for v1 in v0:
+            print(v1.q_space)
