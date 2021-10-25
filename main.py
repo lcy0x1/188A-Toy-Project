@@ -1,9 +1,11 @@
 import math
 import time
+import json
 
 
 class Solver:
     class State:
+
         def __init__(self, vs, mat):
             self.veh_vec: list[int] = vs
             self.queue_vec: list[int] = mat
@@ -19,6 +21,7 @@ class Solver:
             self.gen_vehicle_state()
             self.q_space = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
             self.max: float = 0
+            self.max_ind = (0, 0)
 
         # since it's difficult to calculate compact vehicle motion action ID,
         # I find a sparse ID (product of (vehicle at each node + 1)) and map it to compact ID
@@ -59,6 +62,7 @@ class Solver:
         def update(self, car: int, ind: int, val: int):
             if val > self.max:
                 self.max = val
+                self.max_ind = (car, ind)
             self.q_space[car][ind] = val
 
         def get_max(self):
@@ -252,21 +256,75 @@ class Solver:
                 range(self.queue_size)] for i in range(self.car_state_count)]
         return ans
 
+    def train(self):
+
+        stats = False
+        prev = -1
+        ite = 0
+        error = 1e-4
+
+        while True:
+            maxv = 0
+
+            ix = 0
+
+            for v0 in self.new_state_space:
+                for v1 in v0:
+
+                    t0 = time.time()
+
+                    v1.iterate()
+                    if maxv < v1.get_max():
+                        maxv = v1.get_max()
+
+                    if stats:
+                        t1 = time.time()
+                        ix = ix + 1
+                        print(ix, '/', self.car_state_count * self.queue_size, ", time: ", t1 - t0)
+
+            temp = self.new_state_space
+            self.new_state_space = self.old_state_space
+            self.old_state_space = temp
+            ite = ite + 1
+            print("step training, iteration: ", ite, ",max: ", maxv)
+            if maxv - prev < error:
+                break
+            prev = maxv
+
+    def write_json(self, filename):
+        data = []
+        for v0 in self.old_state_space:
+            for v1 in v0:
+                data.append(v1.q_space)
+        json.dump(data, open(filename, 'w'))
+
+    def read_json(self, filename):
+        data = json.load(open(filename, 'r'))
+        vi = 0
+        for v0 in self.old_state_space:
+            for v1 in v0:
+                v1.q_space = data[vi]
+                v1.max = float("-inf")
+                for i0 in range(len(data[vi])):
+                    for i1 in range(len(data[vi][i0])):
+                        if data[vi][i0][i1] > v1.max:
+                            v1.max = data[vi][i0][i1]
+                            v1.max_ind = (i0, i1)
+                vi = vi + 1
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    number_of_vehicles = 3
-    number_of_nodes = 3
+    number_of_vehicles = 2
+    number_of_nodes = 2
     queue_size = 2
-    price_discretization = 3
-    poisson_parameter = 0.5
+    price_discretization = 5
     poisson_cap = 1
-    operating_cost = 0.1
-    waiting_penalty = 0.2
+    poisson_parameter = 1.0
+    operating_cost = 0.0
+    waiting_penalty = 1.0
     overflow_penalty = 100
     converge_discount = 0.99
-    epsilon = 1e-4
-    stats = True
 
     print("Start")
     solv = Solver(number_of_vehicles,
@@ -283,35 +341,21 @@ if __name__ == '__main__':
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
-    prev = -1
-    ite = 0
-    while True:
-        maxv = 0
+    str = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}.json"
 
-        ix = 0
 
-        for v0 in solv.new_state_space:
-            for v1 in v0:
+    #solv.train()
+    #solv.write_json(str)
+    solv.read_json(str)
 
-                t0 = time.time()
-
-                v1.iterate()
-                if maxv < v1.get_max():
-                    maxv = v1.get_max()
-
-                if stats:
-                    t1 = time.time()
-                    ix = ix + 1
-                    print(ix, '/', solv.car_state_count * solv.queue_size, ", time: ", t1 - t0)
-
-        temp = solv.new_state_space
-        solv.new_state_space = solv.old_state_space
-        solv.old_state_space = temp
-        ite = ite + 1
-        print("step training, iteration: ", ite, ",max: ", maxv)
-        if maxv - prev < epsilon:
-            break
-        prev = maxv
     for v0 in solv.old_state_space:
         for v1 in v0:
-            print(v1.q_space)
+            veh_0 = v1.state.veh_vec[0]
+            print("car at node 1: ", veh_0, ", car at node 2: ", solv.n_veh - veh_0,
+                  ", queue 1->2: ", v1.state.queue_vec[0], ", queue 2->1: ", v1.state.queue_vec[1],
+                  #", car move 1->2: ", v1.veh_states[v1.max_ind[0]][0],
+                  #", car move 2->1: ", v1.veh_states[v1.max_ind[0]][1],
+                  #", price at node 1: ", math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price,
+                  #", price at node 2: ", math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price,
+                  #", max Q: ", v1.get_max(), ", action: ", v1.max_ind,
+                  f"{v1.veh_states[v1.max_ind[0]]},{(math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price,math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price)},{v1.get_max()}")
