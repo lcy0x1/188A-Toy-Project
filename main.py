@@ -99,7 +99,7 @@ class Solver:
                 for i in range(self.env.n_poi + 1):
                     coming = min(self.env.n_queue - cur_queue_vec[ind_od], i)
                     cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + coming
-                    price = act_price[ind_od] / (1 + self.env.n_price)
+                    price = act_price[ind_od] / self.env.n_price
                     gain = rec_poisson(ind_od + 1) + coming * price - (i - coming) * self.env.overflow
                     ans = ans + self.env.get_prob(act_price[ind_od], i) * gain
                     cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - coming
