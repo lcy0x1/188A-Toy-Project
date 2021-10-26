@@ -4,7 +4,7 @@ from array_heap import ArrHeap
 
 if __name__ == '__main__':
     n = 100
-    heap = ArrHeap(n)
+    heap = ArrHeap(n, 0)
     m = 10000
     ans = True
     for _ in range(m):

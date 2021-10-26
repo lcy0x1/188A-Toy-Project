@@ -123,8 +123,8 @@ class StateStorage(object):
         return {'q': self.q_space.to_obj(), 'h': self.heuristic.to_obj(), 'c': self.count}
 
     def read(self, data):
-        self.q_space = data['q']
-        self.heuristic = data['h']
+        self.q_space.read(data['q'])
+        self.heuristic.read(data['h'])
         self.count = data['c']
 
 
@@ -311,8 +311,12 @@ if __name__ == '__main__':
 
     filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{step}.json"
 
-    solv.train(step)
-    solv.write_json(filename)
-    # solv.read_json(filename)
+    #solv.train(step)
+    #solv.write_json(filename)
+    solv.read_json(filename)
+
+    for a0 in solv.state_space:
+        for a1 in a0:
+            print(a1.get_max())
 
     print("complete")
