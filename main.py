@@ -321,9 +321,9 @@ if __name__ == '__main__':
     queue_size = 2
     price_discretization = 5
     poisson_cap = 1
-    poisson_parameter = 1.0
-    operating_cost = 0.0
-    waiting_penalty = 1.0
+    poisson_parameter = 0.5
+    operating_cost = 0.1
+    waiting_penalty = 0.2
     overflow_penalty = 100
     converge_discount = 0.99
 
@@ -344,9 +344,9 @@ if __name__ == '__main__':
 
     str = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}.json"
 
-    # solv.train()
-    # solv.write_json(str)
-    solv.read_json(str)
+    solv.train()
+    solv.write_json(str)
+    # solv.read_json(str)
 
     for v0 in solv.old_state_space:
         for v1 in v0:
