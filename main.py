@@ -47,9 +47,7 @@ class State(object):
                 if grow > env.n_queue:
                     ans = ans - (grow - env.n_queue) * env.overflow
                     grow = env.n_queue
-                    ans = ans + (env.n_queue - self.queue_vec[n - ind - 1]) * price_f
-                else:
-                    ans = ans + grow * price_f
+                ans = ans + (grow - self.queue_vec[n - ind - 1]) * price_f
                 self.queue_vec[n - ind - 1] = grow
                 ind = ind + 1
         return ans
@@ -108,7 +106,7 @@ class StateStorage(object):
         old = self.q_space.get(index)
         n = self.count[car][ind]
         self.count[car][ind] = n + 1
-        alpha = 1 / (n + 1)
+        alpha = self.env.get_moving_average(n)
         q_val = old * (1 - alpha) + val * alpha
         self.q_space.update(index, q_val)
 
@@ -130,7 +128,7 @@ class StateStorage(object):
 
 class Solver:
     def __init__(self, nv: int, nn: int, nq: int, np: int, poi: float, npoi: int, cost: float, penalty: float,
-                 overflow: float, decay: float):
+                 overflow: float, decay: float, moving_average: float):
         self.n_veh = nv
         self.n_node = nn
         self.n_queue = nq
@@ -141,6 +139,7 @@ class Solver:
         self.penalty = penalty
         self.overflow = overflow
         self.decay = decay
+        self.moving_average = moving_average
         self.car_state_count = 0
         self.car_state_map = [0 for _ in range((nv + 1) ** (nn - 1))]
         self.car_states: list[list[int]] = []
@@ -208,7 +207,7 @@ class Solver:
         rand = random.random()
         for req in range(self.n_poi + 1):
             prob = self.get_prob(price, req)
-            if prob < rand:
+            if rand < prob:
                 return req
             rand = rand - prob
         return self.n_poi
@@ -250,7 +249,8 @@ class Solver:
         return ans
 
     def train(self, step, epsilon):
-        state = State(self.state_space[0][0].state.veh_vec, self.state_space[0][0].state.queue_vec)
+        iss = self.state_space[random.randrange(self.car_state_count)][random.randrange(self.queue_size)].state
+        state = State(iss.veh_vec.copy(), iss.queue_vec.copy())
         ss0 = self.get_state(state)
         for i in range(step):
             rand = random.random()
@@ -278,6 +278,9 @@ class Solver:
                 v1.read(data[vi])
                 vi = vi + 1
 
+    def get_moving_average(self, n):
+        return self.moving_average
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
@@ -291,8 +294,10 @@ if __name__ == '__main__':
     waiting_penalty = 0.2
     overflow_penalty = 100
     converge_discount = 0.99
+    moving_average = 0.01
     macro_step = 100
-    micro_step = 100000
+    middle_step = 10000
+    micro_step = 10
     eps_decay = 0.95
 
     print("Start")
@@ -305,16 +310,18 @@ if __name__ == '__main__':
                   operating_cost,
                   waiting_penalty,
                   overflow_penalty,
-                  converge_discount)
+                  converge_discount,
+                  moving_average)
     print("State Machine Initialized")
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
-    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{macro_step * micro_step}.json"
+    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{macro_step * middle_step * micro_step}.json"
 
     eps = 1
     for i in range(macro_step):
-        solv.train(micro_step, eps)
+        for j in range(middle_step):
+            solv.train(micro_step, eps)
         eps = eps * eps_decay
         print(f'{i + 1}%')
     solv.write_json(filename)
