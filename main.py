@@ -40,15 +40,16 @@ class State(object):
                 if x == y:
                     continue
                 price = math.floor(math.fmod(queue_act, env.n_price + 1))
+                price_f = price / (env.n_price + 1)
                 poi = env.get_poi(price)
                 queue_act = math.floor(queue_act / (env.n_price + 1))
                 grow = self.queue_vec[n - ind - 1] + poi
                 if grow > env.n_queue:
                     ans = ans - (grow - env.n_queue) * env.overflow
                     grow = env.n_queue
-                    ans = ans + (env.n_queue - self.queue_vec[n - ind - 1]) * price
+                    ans = ans + (env.n_queue - self.queue_vec[n - ind - 1]) * price_f
                 else:
-                    ans = ans + grow * price
+                    ans = ans + grow * price_f
                 self.queue_vec[n - ind - 1] = grow
                 ind = ind + 1
         return ans
@@ -102,7 +103,7 @@ class StateStorage(object):
 
         rec_i(0, 0)
 
-    def update(self, car: int, ind: int, val: int):
+    def update(self, car: int, ind: int, val: float):
         index = ind + car * self.env.action_size
         old = self.q_space.get(index)
         n = self.count[car][ind]
@@ -249,7 +250,7 @@ class Solver:
         return ans
 
     def train(self, step):
-        epsilon = 1e-2
+        epsilon = 1e-1
         state = State(self.state_space[0][0].state.veh_vec, self.state_space[0][0].state.queue_vec)
         ss0 = self.get_state(state)
         for i in range(step):
@@ -283,10 +284,10 @@ class Solver:
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    number_of_vehicles = 1
-    number_of_nodes = 3
-    queue_size = 1
-    price_discretization = 3
+    number_of_vehicles = 2
+    number_of_nodes = 2
+    queue_size = 2
+    price_discretization = 5
     poisson_cap = 1
     poisson_parameter = 0.5
     operating_cost = 0.1
