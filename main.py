@@ -40,7 +40,7 @@ class State(object):
                 if x == y:
                     continue
                 price = math.floor(math.fmod(queue_act, env.n_price + 1))
-                price_f = price / (env.n_price + 1)
+                price_f = price / env.n_price
                 poi = env.get_poi(price)
                 queue_act = math.floor(queue_act / (env.n_price + 1))
                 grow = self.queue_vec[n - ind - 1] + poi
@@ -220,7 +220,7 @@ class Solver:
                     return 1
                 return k * fact(k - 1)
 
-            lbd = self.poi * (self.n_price - price) / (self.n_price + 1)
+            lbd = self.poi * (self.n_price - price) / self.n_price
             return lbd ** v * math.exp(-lbd) / fact(v)
 
         for p in range(self.n_price + 1):
@@ -249,22 +249,19 @@ class Solver:
                 range(self.queue_size)] for i in range(self.car_state_count)]
         return ans
 
-    def train(self, step):
-        epsilon = 1e-1
+    def train(self, step, epsilon):
         state = State(self.state_space[0][0].state.veh_vec, self.state_space[0][0].state.queue_vec)
         ss0 = self.get_state(state)
         for i in range(step):
             rand = random.random()
             if rand < epsilon:
-                action = (random.randrange(ss0.veh_state_count), self.queue_size)
+                action = (random.randrange(ss0.veh_state_count), random.randrange(self.action_size))
             else:
                 action = ss0.get_optimal_action()
             reward = state.transition(self, ss0.veh_states[action[0]], action[1])
             ss1 = self.get_state(state)
             ss0.update(action[0], action[1], reward + self.decay * ss1.get_max())
             ss0 = ss1
-            if math.floor(math.fmod(i * 100, step)) == 0:
-                print(math.floor(i * 100 / step))
 
     def write_json(self, filename):
         data = []
@@ -294,7 +291,9 @@ if __name__ == '__main__':
     waiting_penalty = 0.2
     overflow_penalty = 100
     converge_discount = 0.99
-    step = 1000000
+    macro_step = 100
+    micro_step = 100000
+    eps_decay = 0.95
 
     print("Start")
     solv = Solver(number_of_vehicles,
@@ -311,14 +310,21 @@ if __name__ == '__main__':
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
-    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{step}.json"
+    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{macro_step * micro_step}.json"
 
-    solv.train(step)
+    eps = 1
+    for i in range(macro_step):
+        solv.train(micro_step, eps)
+        eps = eps * eps_decay
+        print(f'{i + 1}%')
     solv.write_json(filename)
     # solv.read_json(filename)
 
     for a0 in solv.state_space:
         for a1 in a0:
-            print(a1.get_max())
+            act = a1.get_optimal_action()
+            print(a1.state.veh_vec, a1.state.queue_vec,
+                  f'{a1.veh_states[act[0]]}, {(math.floor(act[1] / (solv.n_price + 1)) / solv.n_price, math.floor(math.fmod(act[1], solv.n_price + 1)) / solv.n_price)}',
+                  a1.get_max())
 
     print("complete")
