@@ -284,10 +284,10 @@ class Solver:
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    number_of_vehicles = 2
-    number_of_nodes = 2
-    queue_size = 2
-    price_discretization = 5
+    number_of_vehicles = 1
+    number_of_nodes = 3
+    queue_size = 1
+    price_discretization = 3
     poisson_cap = 1
     poisson_parameter = 0.5
     operating_cost = 0.1
@@ -296,8 +296,8 @@ if __name__ == '__main__':
     converge_discount = 0.99
     moving_average = 0.01
     macro_step = 100
-    middle_step = 10000
-    micro_step = 10
+    middle_step = 40000
+    micro_step = 25
     eps_decay = 0.95
 
     print("Start")
