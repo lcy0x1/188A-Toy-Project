@@ -46,7 +46,9 @@ class State(object):
                 if grow > env.n_queue:
                     ans = ans - (grow - env.n_queue) * env.overflow
                     grow = env.n_queue
-                ans = ans + grow * price
+                    ans = ans + (env.n_queue - self.queue_vec[n - ind - 1]) * price
+                else:
+                    ans = ans + grow * price
                 self.queue_vec[n - ind - 1] = grow
                 ind = ind + 1
         return ans
@@ -62,7 +64,6 @@ class StateStorage(object):
         self.veh_state_map: list[int] = []
         self.gen_vehicle_state()
         self.q_space = array_heap.ArrHeap(env.action_size * self.veh_state_count, 0)
-        self.heuristic = array_heap.ArrHeap(env.action_size * self.veh_state_count, env.heuristic)
         self.count = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
 
     # since it's difficult to calculate compact vehicle motion action ID,
@@ -109,28 +110,26 @@ class StateStorage(object):
         alpha = 1 / (n + 1)
         q_val = old * (1 - alpha) + val * alpha
         self.q_space.update(index, q_val)
-        self.heuristic.update(index, q_val + self.env.heuristic / (n + 2))
 
     def get_max(self):
         return self.q_space.get_max()
 
-    def get_heuristic_action(self):
+    def get_optimal_action(self):
         """return vehicle state and then queue state of the heuristic"""
-        val = self.heuristic.get_index_of_max()
+        val = self.q_space.get_index_of_max()
         return math.floor(val / self.env.action_size), math.floor(math.fmod(val, self.env.action_size))
 
     def to_obj(self):
-        return {'q': self.q_space.to_obj(), 'h': self.heuristic.to_obj(), 'c': self.count}
+        return {'q': self.q_space.to_obj(), 'c': self.count}
 
     def read(self, data):
         self.q_space.read(data['q'])
-        self.heuristic.read(data['h'])
         self.count = data['c']
 
 
 class Solver:
     def __init__(self, nv: int, nn: int, nq: int, np: int, poi: float, npoi: int, cost: float, penalty: float,
-                 overflow: float, decay: float, heuristic: float):
+                 overflow: float, decay: float):
         self.n_veh = nv
         self.n_node = nn
         self.n_queue = nq
@@ -141,7 +140,6 @@ class Solver:
         self.penalty = penalty
         self.overflow = overflow
         self.decay = decay
-        self.heuristic = heuristic
         self.car_state_count = 0
         self.car_state_map = [0 for _ in range((nv + 1) ** (nn - 1))]
         self.car_states: list[list[int]] = []
@@ -251,10 +249,15 @@ class Solver:
         return ans
 
     def train(self, step):
+        epsilon = 1e-2
         state = State(self.state_space[0][0].state.veh_vec, self.state_space[0][0].state.queue_vec)
         ss0 = self.get_state(state)
         for i in range(step):
-            action = ss0.get_heuristic_action()
+            rand = random.random()
+            if rand < epsilon:
+                action = (random.randrange(ss0.veh_state_count), self.queue_size)
+            else:
+                action = ss0.get_optimal_action()
             reward = state.transition(self, ss0.veh_states[action[0]], action[1])
             ss1 = self.get_state(state)
             ss0.update(action[0], action[1], reward + self.decay * ss1.get_max())
@@ -290,8 +293,7 @@ if __name__ == '__main__':
     waiting_penalty = 0.2
     overflow_penalty = 100
     converge_discount = 0.99
-    initial_heuristic = 1000
-    step = 100000000
+    step = 1000000
 
     print("Start")
     solv = Solver(number_of_vehicles,
@@ -303,17 +305,16 @@ if __name__ == '__main__':
                   operating_cost,
                   waiting_penalty,
                   overflow_penalty,
-                  converge_discount,
-                  initial_heuristic)
+                  converge_discount)
     print("State Machine Initialized")
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
     filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{step}.json"
 
-    #solv.train(step)
-    #solv.write_json(filename)
-    solv.read_json(filename)
+    solv.train(step)
+    solv.write_json(filename)
+    # solv.read_json(filename)
 
     for a0 in solv.state_space:
         for a1 in a0:
