@@ -1,147 +1,136 @@
 import math
+import random
 import time
+import json
+import array_heap
+
+
+class State(object):
+
+    def __init__(self, vs, mat):
+        self.veh_vec: list[int] = vs
+        self.queue_vec: list[int] = mat
+
+    def transition(self, env, veh_act, queue_act):
+        ind = 0
+        n = len(self.queue_vec)
+
+        ans = 0
+
+        for x in range(env.n_node):
+            for y in range(env.n_node):
+                if x == y:
+                    continue
+                val = veh_act[ind]
+                ans = ans - val * env.cost
+                if x < env.n_node - 1:
+                    self.veh_vec[x] = self.veh_vec[x] - val
+                if y < env.n_node - 1:
+                    self.veh_vec[y] = self.veh_vec[y] + val
+                rem = self.queue_vec[ind] - val
+                if rem < 0:
+                    rem = 0
+                self.queue_vec[ind] = rem
+                ans = ans - self.queue_vec[ind] * env.penalty
+                ind = ind + 1
+
+        ind = 0
+        for x in range(env.n_node):
+            for y in range(env.n_node):
+                if x == y:
+                    continue
+                price = math.floor(math.fmod(queue_act, env.n_price + 1))
+                poi = env.get_poi(price)
+                queue_act = math.floor(queue_act / (env.n_price + 1))
+                grow = self.queue_vec[n - ind - 1] + poi
+                if grow > env.n_queue:
+                    ans = ans - (grow - env.n_queue) * env.overflow
+                    grow = env.n_queue
+                ans = ans + grow * price
+                self.queue_vec[n - ind - 1] = grow
+                ind = ind + 1
+        return ans
+
+
+class StateStorage(object):
+
+    def __init__(self, env, state):
+        self.env: Solver = env
+        self.state: State = state
+        self.veh_state_count = 0
+        self.veh_states: list[list[int]] = []
+        self.veh_state_map: list[int] = []
+        self.gen_vehicle_state()
+        self.q_space = array_heap.ArrHeap(env.action_size * self.veh_state_count, 0)
+        self.heuristic = array_heap.ArrHeap(env.action_size * self.veh_state_count, env.heuristic)
+        self.count = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
+
+    # since it's difficult to calculate compact vehicle motion action ID,
+    # I find a sparse ID (product of (vehicle at each node + 1)) and map it to compact ID
+    def gen_vehicle_state(self):
+        act_veh_vec = [0 for _ in range(self.env.n_node * (self.env.n_node - 1))]
+        full_veh_pos = [0 for _ in range(self.env.n_node)]
+        remain = self.env.n_veh
+        for k in range(self.env.n_node - 1):
+            full_veh_pos[k] = self.state.veh_vec[k]
+            remain = remain - full_veh_pos[k]
+        full_veh_pos[self.env.n_node - 1] = remain
+
+        n_sparse = 1
+        for k in full_veh_pos:
+            n_sparse = n_sparse * (k + 1) ** (self.env.n_node - 1)
+        self.veh_state_map = [0 for _ in range(n_sparse)]
+
+        def rec_i(state_veh_i: int, ind_i: int):
+            if ind_i == self.env.n_node:
+                self.veh_states.append(act_veh_vec.copy())
+                self.veh_state_map[state_veh_i] = self.veh_state_count
+                self.veh_state_count = self.veh_state_count + 1
+                return
+            veh = full_veh_pos[ind_i]
+
+            def rec_j(state_veh_j: int, remain_j: int, ind_j: int):
+                if ind_j == self.env.n_node - 1:
+                    rec_i(state_veh_j, ind_i + 1)
+                    return
+                for i in range(remain_j + 1):
+                    act_veh_vec[ind_i * (self.env.n_node - 1) + ind_j] = i
+                    rec_j(state_veh_j * (veh + 1) + i, remain_j - i, ind_j + 1)
+
+            rec_j(state_veh_i, veh, 0)
+
+        rec_i(0, 0)
+
+    def update(self, car: int, ind: int, val: int):
+        index = ind + car * self.env.action_size
+        old = self.q_space.get(index)
+        n = self.count[car][ind]
+        self.count[car][ind] = n + 1
+        alpha = 1 / (n + 1)
+        q_val = old * (1 - alpha) + val * alpha
+        self.q_space.update(index, q_val)
+        self.heuristic.update(index, q_val + self.env.heuristic / (n + 2))
+
+    def get_max(self):
+        return self.q_space.get_max()
+
+    def get_heuristic_action(self):
+        """return vehicle state and then queue state of the heuristic"""
+        val = self.heuristic.get_index_of_max()
+        return math.floor(val / self.env.action_size), math.floor(math.fmod(val, self.env.action_size))
+
+    def to_obj(self):
+        return {'q': self.q_space.to_obj(), 'h': self.heuristic.to_obj(), 'c': self.count}
+
+    def read(self, data):
+        self.q_space = data['q']
+        self.heuristic = data['h']
+        self.count = data['c']
 
 
 class Solver:
-    class State:
-        def __init__(self, vs, mat):
-            self.veh_vec: list[int] = vs
-            self.queue_vec: list[int] = mat
-
-    class StateStorage:
-
-        def __init__(self, env, state):
-            self.env: Solver = env
-            self.state: Solver.State = state
-            self.veh_state_count = 0
-            self.veh_states: list[list[int]] = []
-            self.veh_state_map: list[int] = []
-            self.gen_vehicle_state()
-            self.q_space = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
-            self.max: float = 0
-
-        # since it's difficult to calculate compact vehicle motion action ID,
-        # I find a sparse ID (product of (vehicle at each node + 1)) and map it to compact ID
-        def gen_vehicle_state(self):
-            act_veh_vec = [0 for _ in range(self.env.n_node * (self.env.n_node - 1))]
-            full_veh_pos = [0 for _ in range(self.env.n_node)]
-            remain = self.env.n_veh
-            for k in range(self.env.n_node - 1):
-                full_veh_pos[k] = self.state.veh_vec[k]
-                remain = remain - full_veh_pos[k]
-            full_veh_pos[self.env.n_node - 1] = remain
-
-            n_sparse = 1
-            for k in full_veh_pos:
-                n_sparse = n_sparse * (k + 1) ** (self.env.n_node - 1)
-            self.veh_state_map = [0 for _ in range(n_sparse)]
-
-            def rec_i(state_veh_i: int, ind_i: int):
-                if ind_i == self.env.n_node:
-                    self.veh_states.append(act_veh_vec.copy())
-                    self.veh_state_map[state_veh_i] = self.veh_state_count
-                    self.veh_state_count = self.veh_state_count + 1
-                    return
-                veh = full_veh_pos[ind_i]
-
-                def rec_j(state_veh_j: int, remain_j: int, ind_j: int):
-                    if ind_j == self.env.n_node - 1:
-                        rec_i(state_veh_j, ind_i + 1)
-                        return
-                    for i in range(remain_j + 1):
-                        act_veh_vec[ind_i * (self.env.n_node - 1) + ind_j] = i
-                        rec_j(state_veh_j * (veh + 1) + i, remain_j - i, ind_j + 1)
-
-                rec_j(state_veh_i, veh, 0)
-
-            rec_i(0, 0)
-
-        def update(self, car: int, ind: int, val: int):
-            if val > self.max:
-                self.max = val
-            self.q_space[car][ind] = val
-
-        def get_max(self):
-            return self.max
-
-        # 1. iterate through all possible motion of vehicle
-        # 2. iterate through all possible price
-        # 3. iterate through all possible transition
-        def iterate(self):
-            self.max = float('-inf')
-            # number of OD pairs
-            n_od = self.env.n_node * (self.env.n_node - 1)
-            # current queue state vector modified throughout recursion
-            cur_queue_vec = self.state.queue_vec.copy()
-            # current action vector of price modified throughout recursion
-            act_price = [0 for _ in range(n_od)]
-            # current vehicle movement vector modified throughout recursion
-            act_veh = [0 for _ in range(self.env.n_node * (self.env.n_node - 1))]
-            # full vehicle position vector, immutable
-            full_veh_vec = [0 for _ in range(self.env.n_node)]
-            remain = self.env.n_veh
-            for k in range(self.env.n_node - 1):
-                full_veh_vec[k] = self.state.veh_vec[k]
-                remain = remain - full_veh_vec[k]
-            full_veh_vec[self.env.n_node - 1] = remain
-            # current vehicle position vector, modified throught recursion
-            cur_veh_vec = full_veh_vec.copy()
-
-            # iterate through transition
-            def rec_poisson(ind_od):
-                if ind_od == n_od:
-                    return self.env.decay * self.env.get_state(self.env.State(cur_veh_vec, cur_queue_vec)).get_max()
-                ans = 0
-                for i in range(self.env.n_poi + 1):
-                    coming = min(self.env.n_queue - cur_queue_vec[ind_od], i)
-                    cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + coming
-                    gain = rec_poisson(ind_od + 1) + coming * act_price[ind_od] - (i - coming) * self.env.overflow
-                    ans = ans + self.env.get_prob(act_price[ind_od], i) * gain
-                    cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - coming
-                return ans
-
-            # iterate through price setting action
-            def rec_act_price(state_act_veh, state_act_queue, ind_od, cost):
-                if ind_od == n_od:
-                    self.update(state_act_veh, state_act_queue, rec_poisson(0) - cost)
-                    return
-                for i in range(self.env.n_price + 1):
-                    act_price[ind_od] = i
-                    rec_act_price(state_act_veh, state_act_queue * (self.env.n_price + 1) + i, ind_od + 1, cost)
-
-            def rec_act_veh_i(state_act_veh_i, ind_veh_i, cost_i):
-                if ind_veh_i == self.env.n_node:
-                    rec_act_price(self.veh_state_map[state_act_veh_i], 0, 0, cost_i)
-                    return
-                veh = full_veh_vec[ind_veh_i]
-
-                def rec_act_veh_j(state_act_veh_j, rem_j, ind_veh_j, cost_j):
-                    if ind_veh_j == self.env.n_node - 1:
-                        rec_act_veh_i(state_act_veh_j, ind_veh_i + 1, cost_j)
-                        return
-                    for i in range(rem_j + 1):
-                        node_i = ind_veh_i
-                        node_j = ind_veh_j
-                        if ind_veh_j >= ind_veh_i:
-                            node_j = node_j + 1
-                        ind_od = ind_veh_i * (self.env.n_node - 1) + ind_veh_j
-                        act_veh[ind_od] = i
-                        cur_veh_vec[node_i] = cur_veh_vec[node_i] - i
-                        cur_veh_vec[node_j] = cur_veh_vec[node_j] + i
-                        vmi = min(i, cur_queue_vec[ind_od])
-                        cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - vmi
-                        t_cost = cost_j + i * self.env.cost + cur_queue_vec[ind_od] * self.env.penalty
-                        rec_act_veh_j(state_act_veh_j * (veh + 1) + i, rem_j - i, ind_veh_j + 1, t_cost)
-                        cur_veh_vec[node_i] = cur_veh_vec[node_i] + i
-                        cur_veh_vec[node_j] = cur_veh_vec[node_j] - i
-                        cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + vmi
-
-                rec_act_veh_j(state_act_veh_i, veh, 0, cost_i)
-
-            rec_act_veh_i(0, 0, 0)
-
     def __init__(self, nv: int, nn: int, nq: int, np: int, poi: float, npoi: int, cost: float, penalty: float,
-                 overflow: float, decay: float):
+                 overflow: float, decay: float, heuristic: float):
         self.n_veh = nv
         self.n_node = nn
         self.n_queue = nq
@@ -152,6 +141,7 @@ class Solver:
         self.penalty = penalty
         self.overflow = overflow
         self.decay = decay
+        self.heuristic = heuristic
         self.car_state_count = 0
         self.car_state_map = [0 for _ in range((nv + 1) ** (nn - 1))]
         self.car_states: list[list[int]] = []
@@ -163,15 +153,14 @@ class Solver:
         self.transition_size = (self.n_poi + 1) ** (self.n_node * (self.n_node - 1))
         self.queue_states: list[list[int]] = [[] for _ in range(self.queue_size)]
         self.gen_queue_states()
-        self.old_state_space = self.gen_state_space()
-        self.new_state_space = self.gen_state_space()
+        self.state_space = self.gen_state_space()
 
     # calculate how large is the problem
     # returns state size, action size, and average transition size
     def get_total_q_size(self):
         ans = 0
         count = 0
-        for s0 in self.old_state_space:
+        for s0 in self.state_space:
             for s1 in s0:
                 count = count + 1
                 ans = ans + s1.veh_state_count
@@ -195,7 +184,7 @@ class Solver:
     def get_state(self, state: State):
         car_id = self.car_state_map[self.get_car_id(state.veh_vec)]
         queue_id = self.get_queue_id(state.queue_vec)
-        return self.old_state_space[car_id][queue_id]
+        return self.state_space[car_id][queue_id]
 
     # get probability to get number of new passengers 0~self.npoi with price level 0~self.np
     def get_prob(self, price: int, request: int):
@@ -215,6 +204,15 @@ class Solver:
                 rec(val * (self.n_veh + 1) + i, ind + 1, rem - i)
 
         rec(0, 0, self.n_veh)
+
+    def get_poi(self, price):
+        rand = random.random()
+        for req in range(self.n_poi + 1):
+            prob = self.get_prob(price, req)
+            if prob < rand:
+                return req
+            rand = rand - prob
+        return self.n_poi
 
     def gen_prob_cache(self):
         def get_prob(price, v):
@@ -248,25 +246,52 @@ class Solver:
         rec(0)
 
     def gen_state_space(self):
-        ans = [[self.StateStorage(self, self.State(self.car_states[i], self.queue_states[j])) for j in
+        ans = [[StateStorage(self, State(self.car_states[i], self.queue_states[j])) for j in
                 range(self.queue_size)] for i in range(self.car_state_count)]
         return ans
+
+    def train(self, step):
+        state = State(self.state_space[0][0].state.veh_vec, self.state_space[0][0].state.queue_vec)
+        ss0 = self.get_state(state)
+        for i in range(step):
+            action = ss0.get_heuristic_action()
+            reward = state.transition(self, ss0.veh_states[action[0]], action[1])
+            ss1 = self.get_state(state)
+            ss0.update(action[0], action[1], reward + self.decay * ss1.get_max())
+            ss0 = ss1
+            if math.floor(math.fmod(i * 100, step)) == 0:
+                print(math.floor(i * 100 / step))
+
+    def write_json(self, filename):
+        data = []
+        for v0 in self.state_space:
+            for v1 in v0:
+                data.append(v1.to_obj())
+        json.dump(data, open(filename, 'w'))
+
+    def read_json(self, filename):
+        data = json.load(open(filename, 'r'))
+        vi = 0
+        for v0 in self.state_space:
+            for v1 in v0:
+                v1.read(data[vi])
+                vi = vi + 1
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    number_of_vehicles = 3
+    number_of_vehicles = 1
     number_of_nodes = 3
-    queue_size = 2
+    queue_size = 1
     price_discretization = 3
-    poisson_parameter = 0.5
     poisson_cap = 1
+    poisson_parameter = 0.5
     operating_cost = 0.1
     waiting_penalty = 0.2
     overflow_penalty = 100
     converge_discount = 0.99
-    epsilon = 1e-4
-    stats = True
+    initial_heuristic = 1000
+    step = 100000000
 
     print("Start")
     solv = Solver(number_of_vehicles,
@@ -278,40 +303,16 @@ if __name__ == '__main__':
                   operating_cost,
                   waiting_penalty,
                   overflow_penalty,
-                  converge_discount)
+                  converge_discount,
+                  initial_heuristic)
     print("State Machine Initialized")
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
-    prev = -1
-    ite = 0
-    while True:
-        maxv = 0
+    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{step}.json"
 
-        ix = 0
+    solv.train(step)
+    solv.write_json(filename)
+    # solv.read_json(filename)
 
-        for v0 in solv.new_state_space:
-            for v1 in v0:
-
-                t0 = time.time()
-
-                v1.iterate()
-                if maxv < v1.get_max():
-                    maxv = v1.get_max()
-
-                if stats:
-                    t1 = time.time()
-                    ix = ix + 1
-                    print(ix, '/', solv.car_state_count * solv.queue_size, ", time: ", t1 - t0)
-
-        temp = solv.new_state_space
-        solv.new_state_space = solv.old_state_space
-        solv.old_state_space = temp
-        ite = ite + 1
-        print("step training, iteration: ", ite, ",max: ", maxv)
-        if maxv - prev < epsilon:
-            break
-        prev = maxv
-    for v0 in solv.old_state_space:
-        for v1 in v0:
-            print(v1.q_space)
+    print("complete")
