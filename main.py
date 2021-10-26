@@ -99,7 +99,8 @@ class Solver:
                 for i in range(self.env.n_poi + 1):
                     coming = min(self.env.n_queue - cur_queue_vec[ind_od], i)
                     cur_queue_vec[ind_od] = cur_queue_vec[ind_od] + coming
-                    gain = rec_poisson(ind_od + 1) + coming * act_price[ind_od] - (i - coming) * self.env.overflow
+                    price = act_price[ind_od] / (1 + self.env.n_price)
+                    gain = rec_poisson(ind_od + 1) + coming * price - (i - coming) * self.env.overflow
                     ans = ans + self.env.get_prob(act_price[ind_od], i) * gain
                     cur_queue_vec[ind_od] = cur_queue_vec[ind_od] - coming
                 return ans
@@ -343,9 +344,8 @@ if __name__ == '__main__':
 
     str = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}.json"
 
-
-    #solv.train()
-    #solv.write_json(str)
+    # solv.train()
+    # solv.write_json(str)
     solv.read_json(str)
 
     for v0 in solv.old_state_space:
@@ -353,9 +353,9 @@ if __name__ == '__main__':
             veh_0 = v1.state.veh_vec[0]
             print("car at node 1: ", veh_0, ", car at node 2: ", solv.n_veh - veh_0,
                   ", queue 1->2: ", v1.state.queue_vec[0], ", queue 2->1: ", v1.state.queue_vec[1],
-                  #", car move 1->2: ", v1.veh_states[v1.max_ind[0]][0],
-                  #", car move 2->1: ", v1.veh_states[v1.max_ind[0]][1],
-                  #", price at node 1: ", math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price,
-                  #", price at node 2: ", math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price,
-                  #", max Q: ", v1.get_max(), ", action: ", v1.max_ind,
-                  f"{v1.veh_states[v1.max_ind[0]]},{(math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price,math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price)},{v1.get_max()}")
+                  # ", car move 1->2: ", v1.veh_states[v1.max_ind[0]][0],
+                  # ", car move 2->1: ", v1.veh_states[v1.max_ind[0]][1],
+                  # ", price at node 1: ", math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price,
+                  # ", price at node 2: ", math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price,
+                  # ", max Q: ", v1.get_max(), ", action: ", v1.max_ind,
+                  f"{v1.veh_states[v1.max_ind[0]]},{(math.floor(v1.max_ind[1] / (solv.n_price + 1)) / solv.n_price, math.fmod(v1.max_ind[1], (solv.n_price + 1)) / solv.n_price)},{v1.get_max()}")
