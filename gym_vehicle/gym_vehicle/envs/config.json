@@ -4,5 +4,7 @@
   "queue_size": 2,
   "poisson_param": 1,
   "operating_cost": 0.1,
-  "waiting_penalty": 0.2
+  "waiting_penalty": 0.2,
+  "price_discretization": 5,
+  "overflow": 100
 }
