@@ -1,6 +1,5 @@
 import math
 import random
-import time
 import json
 
 import array_heap
@@ -317,7 +316,7 @@ if __name__ == '__main__':
     print("\t(state size, q size, transition:): ", solv.get_total_q_size())
     print("\tprobability matrix: ", solv.prob_cache)
 
-    filename = f"./data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{macro_step * middle_step * micro_step}.json"
+    filename = f"data/{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}/{macro_step * middle_step * micro_step}.json"
 
     eps = 1
     for i in range(macro_step):
