@@ -2,14 +2,15 @@ import math
 import random
 import time
 import json
+
 import array_heap
 
 
 class State(object):
 
     def __init__(self, vs, mat):
-        self.veh_vec: list[int] = vs
-        self.queue_vec: list[int] = mat
+        self.veh_vec = vs
+        self.queue_vec = mat
 
     def transition(self, env, veh_act, queue_act):
         ind = 0
@@ -59,8 +60,8 @@ class StateStorage(object):
         self.env: Solver = env
         self.state: State = state
         self.veh_state_count = 0
-        self.veh_states: list[list[int]] = []
-        self.veh_state_map: list[int] = []
+        self.veh_states = []
+        self.veh_state_map = []
         self.gen_vehicle_state()
         self.q_space = array_heap.ArrHeap(env.action_size * self.veh_state_count, 0)
         self.count = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
@@ -149,7 +150,7 @@ class Solver:
         self.queue_size = (self.n_queue + 1) ** (self.n_node * (self.n_node - 1))
         self.action_size = (self.n_price + 1) ** (self.n_node * (self.n_node - 1))
         self.transition_size = (self.n_poi + 1) ** (self.n_node * (self.n_node - 1))
-        self.queue_states: list[list[int]] = [[] for _ in range(self.queue_size)]
+        self.queue_states = [[] for _ in range(self.queue_size)]
         self.gen_queue_states()
         self.state_space = self.gen_state_space()
 
@@ -284,10 +285,10 @@ class Solver:
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    number_of_vehicles = 1
-    number_of_nodes = 3
-    queue_size = 1
-    price_discretization = 3
+    number_of_vehicles = 2
+    number_of_nodes = 2
+    queue_size = 2
+    price_discretization = 5
     poisson_cap = 1
     poisson_parameter = 0.5
     operating_cost = 0.1
@@ -296,7 +297,7 @@ if __name__ == '__main__':
     converge_discount = 0.99
     moving_average = 0.01
     macro_step = 100
-    middle_step = 40000
+    middle_step = 4000
     micro_step = 25
     eps_decay = 0.95
 
