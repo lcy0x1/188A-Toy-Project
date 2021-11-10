@@ -22,9 +22,9 @@ def make_env(env_id, rank, seed=0):
 
 if __name__ == "__main__":
     env_id = "vehicle-v0"
-    num_cpu = 1  # Number of processes to use
+    num_cpu = 8  # Number of processes to use
     # Create the vectorized environment
-    env = DummyVecEnv([make_env(env_id, i) for i in range(num_cpu)])
+    env = SubprocVecEnv([make_env(env_id, i) for i in range(num_cpu)])
 
     # Stable Baselines provides you with make_vec_env() helper
     # which does exactly the previous steps for you.
