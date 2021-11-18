@@ -32,7 +32,8 @@ if __name__ == "__main__":
     # env = make_vec_env(env_id, n_envs=num_cpu, seed=0, vec_env_cls=SubprocVecEnv)
 
     model = PPO('MlpPolicy', env, verbose=1)
-    model.learn(total_timesteps=1_000_000)
+    model.learn(total_timesteps=100_000)
+    model.save("./data/1e6")
 
     obs = env.reset()
     for _ in range(1000):
