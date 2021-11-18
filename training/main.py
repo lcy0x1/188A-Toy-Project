@@ -31,17 +31,21 @@ if __name__ == "__main__":
     # You can choose between `DummyVecEnv` (usually faster) and `SubprocVecEnv`
     # env = make_vec_env(env_id, n_envs=num_cpu, seed=0, vec_env_cls=SubprocVecEnv)
 
-    #model = PPO('MlpPolicy', env, verbose=1)
+    model = PPO('MlpPolicy', env, verbose=1)
 
-    model = PPO.load("./data/2e6")
-    model.set_env(env)
-    model.learn(total_timesteps=1_000_000)
-    model.save("./data/3e6")
+    # model = PPO.load("./data/1mil")
+    # model.set_env(env)
 
-    sums = 0
-    obs = env.reset()
-    for _ in range(1000):
-        action, _states = model.predict(obs)
-        obs, rewards, dones, info = env.step(action)
-        sums = sums + rewards
-    print("average return: ", sums / 1000)
+    sum_list = []
+
+    for i in range(3):
+        model.learn(total_timesteps=1_000_000)
+        model.save(f"./data/{i + 1}mil")
+        sums = 0
+        obs = env.reset()
+        for _ in range(1000):
+            action, _states = model.predict(obs)
+            obs, rewards, dones, info = env.step(action)
+            sums = sums + rewards
+        sum_list.append(sums / 1000)
+    print("average return: ", sum_list)

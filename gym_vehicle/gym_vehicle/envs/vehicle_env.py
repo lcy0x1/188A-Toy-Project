@@ -55,9 +55,9 @@ class VehicleEnv(gym.Env):
         self.poisson_param = self.config["poisson_param"]
         self.operating_cost = self.config["operating_cost"]
         self.waiting_penalty = self.config["waiting_penalty"]
-        self.price_discretization = self.config["price_discretization"]
         self.queue_size = self.config["queue_size"]
         self.overflow = self.config["overflow"]
+        self.poisson_cap = self.config["poisson_cap"]
         self.vehicles = [0 for _ in range(self.node)]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
@@ -83,12 +83,12 @@ class VehicleEnv(gym.Env):
                 utility = utility - veh_motion * self.operating_cost
                 utility = utility - self.queue[i][j] * self.waiting_penalty
                 price = action.price[i][j]
-                request = self.random.poisson(self.poisson_param * (1 - price))
+                request = min(self.poisson_cap, self.random.poisson(self.poisson_param * (1 - price)))
                 act_req = min(request, self.queue_size - self.queue[i][j])
                 utility = utility - (request - act_req) * self.overflow
                 self.queue[i][j] = self.queue[i][j] + act_req
                 utility = utility + act_req * action.price[i][j]
-        return self.to_observation(), utility, utility < -10, {}
+        return self.to_observation(), utility, False, {}
 
     def reset(self):
         for i in range(self.node):

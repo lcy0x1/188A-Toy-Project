@@ -1,10 +1,10 @@
 {
   "node": 2,
   "vehicle": 2,
-  "queue_size": 2,
+  "queue_size": 5,
   "poisson_param": 1,
   "operating_cost": 0.1,
   "waiting_penalty": 0.2,
-  "price_discretization": 5,
-  "overflow": 100
+  "overflow": 100,
+  "poisson_cap": 3
 }
