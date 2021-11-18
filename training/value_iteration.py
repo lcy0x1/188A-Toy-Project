@@ -332,7 +332,7 @@ if __name__ == '__main__':
     solv = Solver(number_of_vehicles,
                   number_of_nodes,
                   queue_size,
-                  price_discretization - 1,
+                  price_discretization,
                   poisson_parameter,
                   poisson_cap,
                   operating_cost,
@@ -345,7 +345,6 @@ if __name__ == '__main__':
 
     # Rewrite this
     str = f"./data/test.json"
-    # " \f"#{number_of_vehicles}-{number_of_nodes}-{queue_size}-{price_discretization}-{poisson_cap}/{poisson_parameter}-{operating_cost}-{waiting_penalty}-{overflow_penalty}-{converge_discount}.json"
 
     # solv.train()
     # solv.write_json(str)
@@ -357,5 +356,5 @@ if __name__ == '__main__':
     print(q_space.q_space[action[0]][action[1]])
     print(action)
     print(q_space.veh_states[action[0]])
-    print(math.fmod(action[1],price_discretization))
-    print(math.floor(action[1]/(price_discretization)))
+    print(math.fmod(action[1], price_discretization + 1))
+    print(math.floor(action[1] / (price_discretization + 1)))
