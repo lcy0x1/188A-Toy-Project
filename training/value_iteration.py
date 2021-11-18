@@ -2,13 +2,15 @@ import math
 import time
 import json
 
+from typing import List
+
 
 class Solver:
     class State:
 
         def __init__(self, vs, mat):
-            self.veh_vec: list[int] = vs
-            self.queue_vec: list[int] = mat
+            self.veh_vec: List[int] = vs
+            self.queue_vec: List[int] = mat
 
     class StateStorage:
 
@@ -16,8 +18,8 @@ class Solver:
             self.env: Solver = env
             self.state: Solver.State = state
             self.veh_state_count = 0
-            self.veh_states: list[list[int]] = []
-            self.veh_state_map: list[int] = []
+            self.veh_states: List[List[int]] = []
+            self.veh_state_map: List[int] = []
             self.gen_vehicle_state()
             self.q_space = [[0 for _ in range(env.action_size)] for _ in range(self.veh_state_count)]
             self.max: float = 0
@@ -159,14 +161,14 @@ class Solver:
         self.decay = decay
         self.car_state_count = 0
         self.car_state_map = [0 for _ in range((nv + 1) ** (nn - 1))]
-        self.car_states: list[list[int]] = []
+        self.car_states: List[List[int]] = []
         self.gen_car_state()
         self.prob_cache = [[0 for _ in range(npoi + 1)] for _ in range(np + 1)]
         self.gen_prob_cache()
         self.queue_size = (self.n_queue + 1) ** (self.n_node * (self.n_node - 1))
         self.action_size = (self.n_price + 1) ** (self.n_node * (self.n_node - 1))
         self.transition_size = (self.n_poi + 1) ** (self.n_node * (self.n_node - 1))
-        self.queue_states: list[list[int]] = [[] for _ in range(self.queue_size)]
+        self.queue_states: List[List[int]] = [[] for _ in range(self.queue_size)]
         self.gen_queue_states()
         self.old_state_space = self.gen_state_space()
         self.new_state_space = self.gen_state_space()
@@ -258,31 +260,23 @@ class Solver:
         return ans
 
     def train(self):
-
         stats = False
         prev = -1
         ite = 0
         error = 1e-4
-
         while True:
             maxv = 0
-
             ix = 0
-
             for v0 in self.new_state_space:
                 for v1 in v0:
-
                     t0 = time.time()
-
                     v1.iterate()
                     if maxv < v1.get_max():
                         maxv = v1.get_max()
-
                     if stats:
                         t1 = time.time()
                         ix = ix + 1
                         print(ix, '/', self.car_state_count * self.queue_size, ", time: ", t1 - t0)
-
             temp = self.new_state_space
             self.new_state_space = self.old_state_space
             self.old_state_space = temp

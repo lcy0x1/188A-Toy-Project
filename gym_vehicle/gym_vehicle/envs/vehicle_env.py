@@ -10,14 +10,33 @@ class VehicleAction:
 
     def __init__(self, env, arr):
         self.motion = [[0 for _ in range(env.node)] for _ in range(env.node)]
-        self.price = [[0 for _ in range(env.node)] for _ in range(env.node)]
+        self.price = [[0.0 for _ in range(env.node)] for _ in range(env.node)]
         ind = 0
+        tmp = [0 for _ in range(env.node)]
         for i in range(env.node):
+            rsum = 0
             for j in range(env.node):
-                if i == j:
-                    continue
-                self.motion[i][j] = arr[ind]
+                tmp[j] = arr[ind]
+                rsum = rsum + arr[ind]
                 ind = ind + 1
+            rsum = max(1e-5, rsum)
+            rem: int = env.vehicles[i]
+            for j in range(env.node):
+                tmp[j] = env.vehicles[i] * tmp[j] / rsum
+                rem = rem - math.floor(tmp[j])
+            random = env.random.rand(1)
+            rem = rem - 1
+            for j in range(env.node):
+                mrem = tmp[j] - math.floor(tmp[j])
+                if (random > 0) and (random < mrem):
+                    self.motion[i][j] = math.floor(tmp[j]) + 1
+                    if rem > 0:
+                        random = random + env.random.rand(1)
+                        rem = rem - 1
+                else:
+                    self.motion[i][j] = math.floor(tmp[j])
+                random = random - mrem
+
         for i in range(env.node):
             for j in range(env.node):
                 if i == j:
@@ -45,9 +64,7 @@ class VehicleEnv(gym.Env):
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
-        self.action_space = spaces.MultiDiscrete(
-            [self.vehicle + 1 for _ in range(self.node * (self.node - 1))] +
-            [self.price_discretization + 1 for _ in range(self.node * (self.node - 1))])
+        self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -59,19 +76,19 @@ class VehicleEnv(gym.Env):
             for j in range(self.node):
                 if i == j:
                     continue
-                veh_motion = min(action.motion[i][j], self.vehicles[i])  # TODO truncate invalid action
+                veh_motion = action.motion[i][j]
                 self.vehicles[i] = self.vehicles[i] - veh_motion
                 self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
                 utility = utility - veh_motion * self.operating_cost
                 utility = utility - self.queue[i][j] * self.waiting_penalty
-                price = action.price[i][j] / self.price_discretization
+                price = action.price[i][j]
                 request = self.random.poisson(self.poisson_param * (1 - price))
                 act_req = min(request, self.queue_size - self.queue[i][j])
                 utility = utility - (request - act_req) * self.overflow
                 self.queue[i][j] = self.queue[i][j] + act_req
                 utility = utility + act_req * action.price[i][j]
-        return self.to_observation(), utility, False, {}
+        return self.to_observation(), utility, utility < -10, {}
 
     def reset(self):
         for i in range(self.node):
