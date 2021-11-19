@@ -38,9 +38,9 @@ if __name__ == "__main__":
 
     sum_list = []
 
-    for i in range(3):
+    for i in range(9):
         model.learn(total_timesteps=1_000_000)
-        model.save(f"./data/{i + 1}mil")
+        model.save(f"./data_n3_v3/{i + 1}mil")
         sums = 0
         obs = env.reset()
         for _ in range(1000):
