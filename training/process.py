@@ -1,4 +1,5 @@
 import math
+import statistics
 
 import gym
 import numpy as np
@@ -82,17 +83,43 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
 
+    model = PPO.load("./data/3mil")
+    model.set_env(env)
+
+    list_sums = []
+    list_qs = []
+    for trial in range(100):
+        obs = env.reset()
+        sums = 0
+        qs = 0
+        for _ in range(1000):
+            action, _states = model.predict(obs)
+            obs, rewards, dones, info = env.step(action)
+            sums = sums + rewards
+            qs = qs + obs[2] + obs[3]
+        sums = sums / 1000
+        qs = qs / 1000
+        list_sums.append(sums)
+        list_qs.append(qs)
+    print("DeepRL: average return: ", statistics.mean(list_sums), ", stdev = ", statistics.stdev(list_sums))
+    print("DeepRL: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
+
     solv = make_vi()
 
-    obs = env.reset()
-    sums = 0
-    qs = 0
-    for _ in range(1000):
-        action = convert(solv, obs)
-        obs, rewards, dones, info = env.step(action)
-        sums = sums + rewards
-        qs = qs + obs[2] + obs[3]
-    sums = sums / 1000
-    qs = qs / 1000
-    print("average return: ", sums)
-    print("average queue length: ", qs)
+    list_sums = []
+    list_qs = []
+    for trial in range(100):
+        obs = env.reset()
+        sums = 0
+        qs = 0
+        for _ in range(1000):
+            action = convert(solv, obs)
+            obs, rewards, dones, info = env.step(action)
+            sums = sums + rewards
+            qs = qs + obs[2] + obs[3]
+        sums = sums / 1000
+        qs = qs / 1000
+        list_sums.append(sums)
+        list_qs.append(qs)
+    print("Value Iteration: average return: ", statistics.mean(list_sums), ", stdev = ", statistics.stdev(list_sums))
+    print("Value Iteration: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
