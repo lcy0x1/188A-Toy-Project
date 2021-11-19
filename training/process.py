@@ -76,12 +76,7 @@ def convert(solv, obs):
     action[5] = math.floor(act_ind[1] / 6) / 5
     return action
 
-
-if __name__ == "__main__":
-    env_id = "vehicle-v0"
-    num_cpu = 1  # Number of processes to use
-    # Create the vectorized environment
-    env = make_env(env_id, 12345)()
+def compare():
 
     model = PPO.load("./data/3mil")
     model.set_env(env)
@@ -123,3 +118,32 @@ if __name__ == "__main__":
         list_qs.append(qs)
     print("Value Iteration: average return: ", statistics.mean(list_sums), ", stdev = ", statistics.stdev(list_sums))
     print("Value Iteration: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
+
+
+if __name__ == "__main__":
+    env_id = "vehicle-v0"
+    num_cpu = 1  # Number of processes to use
+    # Create the vectorized environment
+    env = make_env(env_id, 12345)()
+
+    for i in range(9):
+        model = PPO.load(f"./data_n3_v3_set1/{i+1}mil")
+        model.set_env(env)
+
+        list_sums = []
+        list_qs = []
+        for trial in range(100):
+            obs = env.reset()
+            sums = 0
+            qs = 0
+            for _ in range(1000):
+                action, _states = model.predict(obs)
+                obs, rewards, dones, info = env.step(action)
+                sums = sums + rewards
+                qs = qs + obs[2] + obs[3]
+            sums = sums / 1000
+            qs = qs / 1000
+            list_sums.append(sums)
+            list_qs.append(qs)
+        print(f"DeepRL {i+1}: average return: ", statistics.mean(list_sums), ", stdev = ", statistics.stdev(list_sums))
+        print(f"DeepRL {i+1}: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
