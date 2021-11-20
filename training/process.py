@@ -48,7 +48,7 @@ def make_vi():
                                   overflow_penalty,
                                   converge_discount)
 
-    solv.read_json('./data/test.json')
+    solv.read_json('./data_n2_v2/test.json')
 
     return solv
 
@@ -76,9 +76,9 @@ def convert(solv, obs):
     action[5] = math.floor(act_ind[1] / 6) / 5
     return action
 
-def compare():
 
-    model = PPO.load("./data/3mil")
+def compare():
+    model = PPO.load("./data_n2_v2/3mil")
     model.set_env(env)
 
     list_sums = []
@@ -120,14 +120,9 @@ def compare():
     print("Value Iteration: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
 
 
-if __name__ == "__main__":
-    env_id = "vehicle-v0"
-    num_cpu = 1  # Number of processes to use
-    # Create the vectorized environment
-    env = make_env(env_id, 12345)()
-
+def plot(n):
     for i in range(9):
-        model = PPO.load(f"./data_n3_v3_set1/{i+1}mil")
+        model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
@@ -145,5 +140,16 @@ if __name__ == "__main__":
             qs = qs / 1000
             list_sums.append(sums)
             list_qs.append(qs)
-        print(f"DeepRL {i+1}: average return: ", statistics.mean(list_sums), ", stdev = ", statistics.stdev(list_sums))
-        print(f"DeepRL {i+1}: average queue length: ", statistics.mean(list_qs), ", stdev = ", statistics.stdev(list_qs))
+        print(f"DeepRL {i + 1}: average return: ", statistics.mean(list_sums), ", stdev = ",
+              statistics.stdev(list_sums))
+        print(f"DeepRL {i + 1}: average queue length: ", statistics.mean(list_qs), ", stdev = ",
+              statistics.stdev(list_qs))
+
+
+if __name__ == "__main__":
+    env_id = "vehicle-v0"
+    num_cpu = 1  # Number of processes to use
+    # Create the vectorized environment
+    env = make_env(env_id, 12345)()
+    # compare()
+    plot(3)

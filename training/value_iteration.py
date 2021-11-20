@@ -316,7 +316,7 @@ if __name__ == '__main__':
     queue_size = 2
     price_discretization = 5
     poisson_cap = 1
-    poisson_parameter = 0.5
+    poisson_parameter = 1
     operating_cost = 0.1
     waiting_penalty = 0.2
     overflow_penalty = 100
@@ -338,11 +338,11 @@ if __name__ == '__main__':
     print("\tprobability matrix: ", solv.prob_cache)
 
     # Rewrite this
-    str = f"./data/test.json"
+    str = f"./data_n2_v2/test.json"
 
-    # solv.train()
-    # solv.write_json(str)
-    solv.read_json(str)
+    solv.train()
+    solv.write_json(str)
+    # solv.read_json(str)
 
     state = solv.State([1], [1, 1])
     q_space = solv.get_state(state)
