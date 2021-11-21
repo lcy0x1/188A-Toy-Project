@@ -137,9 +137,9 @@ if __name__ == "__main__":
     while True:
         moving()
         n = 30
-        for i in range(n + 1):
+        for i in range(n):
             for c in cars:
-                c.render(i / n)
+                c.render((i + 1) / n)
             time.sleep(1 / 30)
         for c in cars:
             c.update()
