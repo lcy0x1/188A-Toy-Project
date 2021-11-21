@@ -15,7 +15,6 @@ def make_env(env_id, rank, seed=0):
     def _init():
         env = gym.make(env_id)
         env.seed(seed + rank)
-        print("initial state: ", env.reset())
         return env
 
     set_random_seed(seed)
