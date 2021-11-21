@@ -1,6 +1,6 @@
 import math
-import turtle
 from typing import List
+from graphics import *
 
 import gym
 from stable_baselines3 import PPO
@@ -39,44 +39,73 @@ class Container(object):
         return ans
 
 
-class Station(turtle.Turtle):
+class RenderObject(object):
+
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+
+    def render(self, time):
+        pass
+
+    def update(self):
+        pass
+
+
+class Station(RenderObject):
+
     def __init__(self, index, n):
-        turtle.Turtle.__init__(self)
-        self.penup()
-        self.shape("circle")
-        self.color("yellow")
-        self.shapesize(stretch_wid=5)
-        self.speed(0)
-        self.x = 300 * math.cos(index / n * 2 * math.pi)
-        self.y = 300 * math.sin(index / n * 2 * math.pi)
-        self.setposition(self.x, self.y)
+        super().__init__()
+        self.x = 400 + 300 * math.cos(index / n * 2 * math.pi)
+        self.y = 400 + 300 * math.sin(index / n * 2 * math.pi)
         self.vehicles: List[Cars] = []
+        self.sprite = Circle(Point(self.x, self.y), 10)
+        self.sprite.draw(win)
 
     def move_vehicle(self, target, n):
         for _ in range(n):
             self.vehicles[0].set_index(target)
 
 
-class Cars(turtle.Turtle):
+class Cars(RenderObject):
     def __init__(self):
-        turtle.Turtle.__init__(self)
-        self.penup()
-        self.shape("car.gif")
-        self.speed(0)
+        super().__init__()
+        self.x = 0
+        self.y = 0
+        self.target_x = 0
+        self.target_y = 0
+        self.current_x = 0
+        self.current_y = 0
         self.index = 0
+        self.sprite = Image(Point(0, 0), "./car.gif")
+        self.sprite.draw(win)
 
     def init_pos(self, i):
         self.index = i
-        self.setposition(stations[self.index].x, stations[self.index].y)
+        self.x = stations[self.index].x
+        self.y = stations[self.index].y
+        self.target_x = self.x
+        self.target_y = self.y
         stations[self.index].vehicles.append(self)
-        self.speed(2)
 
     def set_index(self, i):
         old_station = self.index
         self.index = i
-        self.goto(stations[self.index].x, stations[self.index].y)
+        self.target_x = stations[self.index].x
+        self.target_y = stations[self.index].y
         stations[old_station].vehicles.remove(self)
         stations[self.index].vehicles.append(self)
+
+    def render(self, time):
+        nx = (self.target_x - self.x) * time + self.x
+        ny = (self.target_y - self.y) * time + self.y
+        self.sprite.move(nx - self.current_x, ny - self.current_y)
+        self.current_x = nx
+        self.current_y = ny
+
+    def update(self):
+        self.x = self.target_x
+        self.y = self.target_y
 
 
 def moving():
@@ -93,9 +122,7 @@ def moving():
 if __name__ == "__main__":
     container = Container()
 
-    wn = turtle.Screen()
-    wn.title("demo")
-    wn.register_shape("car.gif")
+    win = GraphWin("My Circle", 800, 800)
 
     stations = [Station(i, 3) for i in range(3)]
     cars = [Cars() for i in range(3)]
@@ -107,103 +134,16 @@ if __name__ == "__main__":
             cars[ind].init_pos(i)
             ind = ind + 1
 
-    print([cars[i].index for i in range(3)])
-
-    wn.listen()
-    wn.onkeypress(moving, "w")
-
     while True:
-        wn.update()
-
-# import turtle
-# import tkinter as tk
-#
-# def show_cat():
-#     turtle.ht()
-#     turtle.penup()
-#     turtle.goto (15, 220)
-#     turtle.color("black")
-#     turtle.write("CAT", move=False, align="center", font=("Times New Roman", 120, "bold"))
-#
-# screen = turtle.Screen()
-# screen.setup(800,800)
-#
-# canvas = screen.getcanvas()
-#
-# button = tk.Button(canvas.master, text="Click Me", command=show_cat)
-# canvas.create_window(0, 0, window=button)
-#
-# #canvas.create_rectangle((100, 100, 700, 300))
-#
-# turtle.mainloop()
-
-# import turtle
-# import time
-#
-# wn = turtle.Screen()
-# wn.title("Animation")
-# wn.bgcolor("black")
-#
-# player = turtle.Turtle()
-#
-#
-# wn.register_shape("car.gif")
-#
-#
-#
-# class Player(turtle.Turtle):
-#     def __init__(self):
-#         turtle.Turtle.__init__(self)
-#         self.penup()
-#         self.shape("car.gif")
-#         self.color("green")
-#         self.frame = 0
-#         self.frames = ["car.gif", "circle"]
-#
-#     def animation(self):
-#         self.frame +=1
-#         if self.frame >= len(self.frames):
-#             self.frame = 0
-#         self.shape(self.frames[player.frame])
-#         wn.ontimer(self.animation, 500)
-#
-#
-# player = Player()
-#
-# player.animation()
-#
-# player2 = Player()
-# player2.goto(-100,0)
-# player2.animation()
-#
-#
-#
-# while True:
-#     wn.update()
-#
-#
-# wn.mainloop()
-
-
-# import turtle
-#
-# wn = turtle.Screen()
-# wn.tracer(0)
-#
-# paddle = turtle.Turtle()
-# paddle.speed(0)
-# paddle.shape("square")
-# paddle.shapesize(stretch_wid=5,stretch_len=1)
-# paddle.penup()
-# paddle.goto(0,0)
-#
-# def paddle_up():
-#     y = paddle.ycor()
-#     y+=10
-#     paddle.sety(y)
-#
-# wn.listen()
-# wn.onkeypress(paddle_up,"w")
-#
-# while True:
-#     wn.update()
+        moving()
+        n = 30
+        for i in range(n + 1):
+            for c in cars:
+                c.render(i / n)
+            time.sleep(1 / 30)
+        for c in cars:
+            c.update()
+        try:
+            win.getMouse()  # pause for click in window
+        except Exception as inst:
+            break
