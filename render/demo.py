@@ -8,7 +8,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from gym_vehicle.envs.vehicle_env import VehicleAction
 
-
+samestaion = 0
 def make_env(env_id, rank, seed=0):
     def _init():
         env = gym.make(env_id)
@@ -39,6 +39,7 @@ class Container(object):
         return ans
 
 
+
 class RenderObject(object):
 
     def __init__(self):
@@ -51,6 +52,14 @@ class RenderObject(object):
     def update(self):
         pass
 
+class Queue(RenderObject):
+    def __init__(self):
+        super().__init__()
+        self.sprite = Image(Point(0, 0), "./passenger.png")
+        self.sprite.draw(win)
+
+
+
 
 class Station(RenderObject):
 
@@ -62,9 +71,11 @@ class Station(RenderObject):
         self.sprite = Circle(Point(self.x, self.y), 10)
         self.sprite.draw(win)
 
+
     def move_vehicle(self, target, n):
         for _ in range(n):
             self.vehicles[0].set_index(target)
+
 
 
 class Cars(RenderObject):
@@ -84,6 +95,7 @@ class Cars(RenderObject):
         self.index = i
         self.x = stations[self.index].x
         self.y = stations[self.index].y
+
         self.target_x = self.x
         self.target_y = self.y
         stations[self.index].vehicles.append(self)
@@ -91,10 +103,18 @@ class Cars(RenderObject):
     def set_index(self, i):
         old_station = self.index
         self.index = i
-        self.target_x = stations[self.index].x
-        self.target_y = stations[self.index].y
         stations[old_station].vehicles.remove(self)
         stations[self.index].vehicles.append(self)
+        if len(stations[self.index].vehicles) == 2:
+            self.target_x = stations[self.index].x
+            self.target_y = stations[self.index].y + 30
+        elif len(stations[self.index].vehicles) == 3:
+            self.target_x = stations[self.index].x
+            self.target_y = stations[self.index].y + 60
+        else:
+            self.target_x = stations[self.index].x
+            self.target_y = stations[self.index].y
+
 
     def render(self, time):
         nx = (self.target_x - self.x) * time + self.x
@@ -110,6 +130,7 @@ class Cars(RenderObject):
 
 def moving():
     _action, _state = container.model.predict(container.state)
+
     action = VehicleAction(container.env, _action)
     container.state, reward, _, _ = container.env.step(_action)
     for i in range(3):
@@ -119,12 +140,23 @@ def moving():
             stations[i].move_vehicle(j, action.motion[i][j])
 
 
+
+
 if __name__ == "__main__":
     container = Container()
 
     win = GraphWin("My Circle", 800, 800)
 
     stations = [Station(i, 3) for i in range(3)]
+    aline = Line(Point(stations[0].x-30, stations[0].y+18), Point(stations[1].x+30,stations[1].y-18))
+    aline.setArrow("both")
+    bline = Line(Point(stations[1].x, stations[1].y-25), Point(stations[2].x,stations[2].y+25))
+    bline.setArrow("both")
+    cline = Line(Point(stations[0].x-30, stations[0].y-18), Point(stations[2].x+30, stations[2].y+18))
+    cline.setArrow("both")
+    aline.draw(win)
+    bline.draw(win)
+    cline.draw(win)
     cars = [Cars() for i in range(3)]
 
     ind = 0
