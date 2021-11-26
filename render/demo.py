@@ -82,7 +82,9 @@ class Station(RenderObject):
     def move_vehicle(self, target, n):
         for _ in range(n):
             self.vehicles[0].set_index(target)
-    def drawQueue(self,start):
+
+
+    def drawQueue( self, start):
         if start == 0:
             if self.nowindex == 1:
                 if self.newQueue[1] == 2:
@@ -277,7 +279,7 @@ class Cars(RenderObject):
 
     def init_pos(self, i):
         self.index = i
-        stations[self.index].vehicles.append(self)
+
         if len(stations[self.index].vehicles) == 1:
             self.x = stations[self.index].x
             self.y = stations[self.index].y + 50
@@ -290,7 +292,7 @@ class Cars(RenderObject):
 
         self.target_x = self.x
         self.target_y = self.y
-
+        stations[self.index].vehicles.append(self)
 
     def set_index(self, i):
         old_station = self.index
@@ -327,13 +329,14 @@ def moving():
     container.state, reward, _, _ = container.env.step(_action)
 
 
+
     for i in range(3):
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
                 continue
             stations[i].move_vehicle(j, action.motion[i][j])
 
-    return action.price
+    return action.price, action.motion
 
 class Price():
     def __init__(self):
@@ -439,19 +442,27 @@ if __name__ == "__main__":
     ind = 0
     for i in range(3):
         n = container.state[i]
+
         for j in range(n):
             cars[ind].init_pos(i)
             ind = ind + 1
 
     while True:
 
-        price = moving()
-        prices.drawprice(price,start)
-        print(price)
+
+        price, motion = moving()
+        prices.drawprice(price, start)
+
+
+
+
+
         n = 30
         allqueue = container.get_queue(container.state)
-
-
+        print("Queue")
+        print(allqueue)
+        print("move")
+        print(motion)
         for x in range(3):
             stations[x].newQueue = allqueue[x]
             stations[x].drawQueue(start)
