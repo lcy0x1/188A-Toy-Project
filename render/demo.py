@@ -63,10 +63,11 @@ class Station(RenderObject):
         self.sprite.draw(win)
 
         self.queue_sprite = [[Image(Point((self.x + 20 * (j + 1)), (self.y - 20)),
-                                    f"./gostation{i + 1}.png") for j in range(4)] for i in range(3)]
+                                    f"./gostation{i + 1}.gif") for j in range(4)] for i in range(3)]
         self.Queue = []
         self.newQueue = []
         self.nowindex = index
+        self.to_leave = 0
 
         Text(Point(self.x, self.y), f"{index + 1}").draw(win)
 
@@ -120,10 +121,12 @@ class Cars(RenderObject):
     def set_index(self, i):
         old_station = self.index
         self.index = i
-        self.target_x = stations[self.index].x
-        self.target_y = stations[self.index].y + 30 + len(stations[self.index].vehicles) * 20  # TODO time order problem
-        stations[old_station].vehicles.remove(self)
-        stations[self.index].vehicles.append(self)
+        s0 = stations[old_station]
+        s1 = stations[self.index]
+        self.target_x = s1.x
+        self.target_y = s1.y + 30 + (len(s1.vehicles) - s1.to_leave) * 20
+        s0.vehicles.remove(self)
+        s1.vehicles.append(self)
 
     def render(self, time):
         nx = (self.target_x - self.x) * time + self.x
@@ -137,10 +140,14 @@ class Cars(RenderObject):
         self.y = self.target_y
 
 
-class Price():
+class Price(object):
     def __init__(self):
         self.price: List[List] = [[None for _ in range(3)] for _ in range(3)]
         self.lines: List[List] = [[None for _ in range(3)] for _ in range(3)]
+
+        a = 0.1  # space between ends of arrow and stations
+        b = 0.03  # arrow offset
+        c = 0.05  # price offset
 
         for src in range(3):
             for dst in range(3):
@@ -148,36 +155,40 @@ class Price():
                     continue
                 ssrc = stations[src]
                 sdst = stations[dst]
-                psrc = Point(ssrc.x * 0.9 + sdst.x * 0.1, ssrc.y * 0.9 + sdst.y * 0.1)
-                pdst = Point(sdst.x * 0.9 + ssrc.x * 0.1, sdst.y * 0.9 + ssrc.y * 0.1)
+                psrc = Point(ssrc.x * (1 - a) + sdst.x * a, ssrc.y * (1 - a) + sdst.y * a)
+                pdst = Point(sdst.x * (1 - a) + ssrc.x * a, sdst.y * (1 - a) + ssrc.y * a)
                 dy = sdst.y - ssrc.y
                 dx = sdst.x - ssrc.x
                 line = Line(psrc, pdst)
-                line.move(-dy * 0.1, dx * 0.1)
+                line.move(-dy * b, dx * b)
                 line.setArrow("last")
                 line.draw(win)
                 self.lines[src][dst] = line
 
-    def drawprice(self, price, start):
-        if start == 1:
-            for src in range(3):
-                for dst in range(3):
-                    if src == dst:
-                        continue
-                    self.price[src][dst].undraw()
+                lc = line.getCenter()
+                p = Text(Point(lc.x - dy * c, lc.y + dx * c), "$")
+                p.draw(win)
+                self.price[src][dst] = p
+
+    def drawprice(self, price, _):
         for src in range(3):
             for dst in range(3):
                 if src == dst:
                     continue
-                lc = self.lines[src][dst].getCenter()
-                self.price[src][dst] = Text(Point(lc.x, lc.y + 20), "$" + str(round(price[src][dst], 2)))
-                self.price[src][dst].draw(win)
+                p: Text = self.price[src][dst]
+                p.setText("$" + str(round(price[src][dst], 2)))
 
 
 def moving():
     _action, _state = container.model.predict(container.state)
     action = VehicleAction(container.env, _action)
     container.state, reward, _, _ = container.env.step(_action)
+    for i in range(3):
+        stations[i].to_leave = 0
+        for j in range(3):
+            if i == j or action.motion[i][j] == 0:
+                continue
+            stations[i].to_leave = stations[i].to_leave + action.motion[i][j]
     for i in range(3):
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
@@ -204,7 +215,14 @@ if __name__ == "__main__":
             ind = ind + 1
 
     while True:
-        moving()
+        price, motion = moving()
+        prices.drawprice(price, start)
+        allqueue = container.get_queue(container.state)
+        for x in range(3):
+            stations[x].newQueue = allqueue[x]
+            stations[x].drawQueue(start)
+
+        start = 1
         n = 30
         for i in range(n):
             for c in cars:
