@@ -67,7 +67,7 @@ class Station(RenderObject):
         self.Queue = []
         self.newQueue = []
         self.nowindex = index
-        self.to_leave = 0
+        self.next_vehicle_index = 0
 
         Text(Point(self.x, self.y), f"{index + 1}").draw(win)
 
@@ -124,7 +124,8 @@ class Cars(RenderObject):
         s0 = stations[old_station]
         s1 = stations[self.index]
         self.target_x = s1.x
-        self.target_y = s1.y + 30 + (len(s1.vehicles) - s1.to_leave) * 20
+        self.target_y = s1.y + 30 + s1.next_vehicle_index * 20
+        s1.next_vehicle_index += 1
         s0.vehicles.remove(self)
         s1.vehicles.append(self)
 
@@ -184,11 +185,11 @@ def moving():
     action = VehicleAction(container.env, _action)
     container.state, reward, _, _ = container.env.step(_action)
     for i in range(3):
-        stations[i].to_leave = 0
+        stations[i].next_vehicle_index = len(stations[i].vehicles)
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
                 continue
-            stations[i].to_leave = stations[i].to_leave + action.motion[i][j]
+            stations[i].next_vehicle_index -= action.motion[i][j]
     for i in range(3):
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
