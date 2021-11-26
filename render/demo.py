@@ -8,7 +8,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from gym_vehicle.envs.vehicle_env import VehicleAction
 
-samestaion = 0
+
 def make_env(env_id, rank, seed=0):
     def _init():
         env = gym.make(env_id)
@@ -78,6 +78,7 @@ class Station(RenderObject):
         self.Q8 = Image(Point((self.x + 40), (self.y - 20)), "./gostation3.png")
         self.Q9 = Image(Point((self.x + 60), (self.y - 20)), "./gostation3.png")
         self.nowindex = 0
+
     def move_vehicle(self, target, n):
         for _ in range(n):
             self.vehicles[0].set_index(target)
@@ -261,7 +262,6 @@ class Station(RenderObject):
 
 
 
-
 class Cars(RenderObject):
     def __init__(self):
         super().__init__()
@@ -325,8 +325,7 @@ def moving():
 
     action = VehicleAction(container.env, _action)
     container.state, reward, _, _ = container.env.step(_action)
-    a = container.get_queue(container.state)
-    print(container.get_queue(container.state))
+
 
     for i in range(3):
         for j in range(3):
@@ -334,10 +333,61 @@ def moving():
                 continue
             stations[i].move_vehicle(j, action.motion[i][j])
 
+    return action.price
 
-
-
-
+class Price():
+    def __init__(self):
+        self.p1to2 = 0
+        self.p1to3 = 0
+        self.p2to1 = 0
+        self.p2to3 = 0
+        self.p3to1 = 0
+        self.p3to2 = 0
+    def drawprice(self,price,start):
+        if start == 0:
+            self.p1to2 = Text(Point(line1to2.getCenter().x, line1to2.getCenter().y + 20),
+                              "$" + str(round(price[0][1], 2)))
+            self.p1to3 = Text(Point(line1to3.getCenter().x, line1to3.getCenter().y - 20),
+                              "$" + str(round(price[0][2], 2)))
+            self.p2to1 = Text(Point(line2to1.getCenter().x, line2to1.getCenter().y - 20),
+                              "$" + str(round(price[1][0], 2)))
+            self.p2to3 = Text(Point(line2to3.getCenter().x - 20, line2to3.getCenter().y),
+                              "$" + str(round(price[1][2], 2)))
+            self.p3to1 = Text(Point(line3to1.getCenter().x, line3to1.getCenter().y + 20),
+                              "$" + str(round(price[2][0], 2)))
+            self.p3to2 = Text(Point(line3to2.getCenter().x + 20, line3to2.getCenter().y),
+                              "$" + str(round(price[2][1], 2)))
+            self.p1to2.draw(win)
+            self.p1to3.draw(win)
+            self.p2to1.draw(win)
+            self.p2to3.draw(win)
+            self.p3to1.draw(win)
+            self.p3to2.draw(win)
+        if start == 1:
+            self.p1to2.undraw()
+            self.p1to3.undraw()
+            self.p2to1.undraw()
+            self.p2to3.undraw()
+            self.p3to1.undraw()
+            self.p3to2.undraw()
+            self.p1to2 = Text(Point(line1to2.getCenter().x, line1to2.getCenter().y + 20),
+                              "$" + str(round(price[0][1], 2)))
+            self.p1to3 = Text(Point(line1to3.getCenter().x, line1to3.getCenter().y - 20),
+                              "$" + str(round(price[0][2], 2)))
+            self.p2to1 = Text(Point(line2to1.getCenter().x, line2to1.getCenter().y - 20),
+                              "$" + str(round(price[1][0], 2)))
+            self.p2to3 = Text(Point(line2to3.getCenter().x - 20, line2to3.getCenter().y),
+                              "$" + str(round(price[1][2], 2)))
+            self.p3to1 = Text(Point(line3to1.getCenter().x, line3to1.getCenter().y + 20),
+                              "$" + str(round(price[2][0], 2)))
+            self.p3to2 = Text(Point(line3to2.getCenter().x + 20, line3to2.getCenter().y),
+                              "$" + str(round(price[2][1], 2)))
+            self.p1to2.draw(win)
+            self.p1to3.draw(win)
+            self.p2to1.draw(win)
+            self.p2to3.draw(win)
+            self.p3to1.draw(win)
+            self.p3to2.draw(win)
 
 if __name__ == "__main__":
     container = Container()
@@ -348,24 +398,44 @@ if __name__ == "__main__":
     stations[0].nowindex = 1
     stations[1].nowindex = 2
     stations[2].nowindex = 3
+    # station name
     message1 = Text(Point(stations[0].x,stations[0].y),"1")
     message2 = Text(Point(stations[1].x,stations[1].y),"2")
     message3 = Text(Point(stations[2].x,stations[2].y),"3")
     message1.draw(win)
     message2.draw(win)
     message3.draw(win)
-    aline = Line(Point(stations[0].x-30, stations[0].y+18), Point(stations[1].x+30,stations[1].y-18))
-    aline.setArrow("both")
-    bline = Line(Point(stations[1].x, stations[1].y-25), Point(stations[2].x,stations[2].y+25))
-    bline.setArrow("both")
-    cline = Line(Point(stations[0].x-30, stations[0].y-18), Point(stations[2].x+30, stations[2].y+18))
-    cline.setArrow("both")
-    aline.draw(win)
-    bline.draw(win)
-    cline.draw(win)
+
+    # draw the arrow path
+    line1to2 = Line(Point(stations[0].x-30*2, stations[0].y+18*2), Point(stations[1].x+30*2,stations[1].y-18*2))
+    line2to1 = Line(Point(stations[0].x - 30*2, stations[0].y + 18*2), Point(stations[1].x + 30*2, stations[1].y - 18*2))
+    line1to2.setArrow("last")
+    line1to2.move(0, 10)
+    line2to1.setArrow("first")
+    line2to1.move(0, -10)
+    line2to3 = Line(Point(stations[1].x, stations[1].y-60), Point(stations[2].x,stations[2].y+60))
+    line3to2 = Line(Point(stations[1].x, stations[1].y - 60), Point(stations[2].x, stations[2].y + 60))
+    line3to2.move(10,0)
+    line3to2.setArrow("first")
+    line2to3.move(-10,0)
+    line2to3.setArrow("last")
+    line1to3 = Line(Point(stations[0].x-30*2, stations[0].y-18*2), Point(stations[2].x+30*2, stations[2].y+18*2))
+    line3to1 = Line(Point(stations[0].x - 30*2, stations[0].y - 18*2), Point(stations[2].x + 30*2, stations[2].y + 18*2))
+    line3to1.move(0,10)
+    line3to1.setArrow("first")
+    line1to3.move(0,-10)
+    line1to3.setArrow("last")
+    line1to2.draw(win)
+    line2to1.draw(win)
+    line2to3.draw(win)
+    line3to2.draw(win)
+    line1to3.draw(win)
+    line3to1.draw(win)
+
+
     cars = [Cars() for i in range(3)]
 
-
+    prices = Price()
     ind = 0
     for i in range(3):
         n = container.state[i]
@@ -375,13 +445,14 @@ if __name__ == "__main__":
 
     while True:
 
-        moving()
+        price = moving()
+        prices.drawprice(price,start)
+        print(price)
         n = 30
         allqueue = container.get_queue(container.state)
 
 
         for x in range(3):
-
             stations[x].newQueue = allqueue[x]
             stations[x].drawQueue(start)
 
