@@ -264,6 +264,7 @@ class Solver:
         prev = -1
         ite = 0
         error = 1e-4
+        max_list = []
         while True:
             maxv = 0
             ix = 0
@@ -282,9 +283,11 @@ class Solver:
             self.old_state_space = temp
             ite = ite + 1
             print("step training, iteration: ", ite, ",max: ", maxv)
+            max_list.append(maxv)
             if maxv - prev < error:
                 break
             prev = maxv
+        print(max_list)
 
     def write_json(self, filename):
         data = []
@@ -341,7 +344,7 @@ if __name__ == '__main__':
     str = f"./data_n2_v2/test.json"
 
     solv.train()
-    solv.write_json(str)
+    # solv.write_json(str)
     # solv.read_json(str)
 
     state = solv.State([1], [1, 1])
