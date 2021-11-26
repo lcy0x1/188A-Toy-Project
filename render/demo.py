@@ -179,6 +179,34 @@ class Price(object):
                 p: Text = self.price[src][dst]
                 p.setText("$" + str(round(price[src][dst], 2)))
 
+class rewards(object):
+    def __init__(self):
+        self.totalreward = 0
+        self.reward = 0
+        rewardtitle = Text(Point(300, 50), "Reward:")
+        rewardtitle.draw(win)
+        totalrewardtitle = Text(Point(300,80), "Total Reward:")
+        totalrewardtitle.draw(win)
+        self.p = Text(Point(400,50), round(self.reward,2))
+        self.q = Text(Point(400,80), round(self.totalreward,2))
+
+    def drawreward(self,reward,start):
+        if start == 0:
+            self.p.setText(round(self.reward,2))
+            self.q.setText(round(self.totalreward, 2))
+            self.p.draw(win)
+            self.q.draw(win)
+            self.reward = reward
+            self.totalreward = self.totalreward + reward
+        else:
+
+            self.p.setText(round(self.reward,2))
+            self.q.setText(round(self.totalreward, 2))
+            self.reward = reward
+            self.totalreward = self.totalreward + reward
+
+
+
 
 def moving():
     _action, _state = container.model.predict(container.state)
@@ -195,7 +223,7 @@ def moving():
             if i == j or action.motion[i][j] == 0:
                 continue
             stations[i].move_vehicle(j, action.motion[i][j])
-    return action.price, action.motion
+    return action.price, action.motion,reward
 
 
 if __name__ == "__main__":
@@ -207,7 +235,7 @@ if __name__ == "__main__":
     stations = [Station(i, 3) for i in range(3)]
     cars = [Cars() for i in range(3)]
     prices = Price()
-
+    Reward = rewards()
     ind = 0
     for i in range(3):
         n = container.state[i]
@@ -216,14 +244,16 @@ if __name__ == "__main__":
             ind = ind + 1
 
     while True:
-        price, motion = moving()
+        price, motion, reward = moving()
+
+
         prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
         for x in range(3):
             stations[x].newQueue = allqueue[x]
             stations[x].drawQueue(start)
 
-        start = 1
+
         n = 30
         for i in range(n):
             for c in cars:
@@ -231,6 +261,8 @@ if __name__ == "__main__":
             time.sleep(1 / 30)
         for c in cars:
             c.update()
+        Reward.drawreward(reward, start)
+        start = 1
         try:
             win.getMouse()  # pause for click in window
         except Exception as inst:
