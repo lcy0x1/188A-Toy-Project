@@ -1,6 +1,6 @@
 {
-  "node": 2,
-  "vehicle": 1,
+  "node": 3,
+  "vehicle": 2,
   "queue_size": 8,
   "poisson_param": 3,
   "operating_cost": 0.1,
