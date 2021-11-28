@@ -121,6 +121,10 @@ def compare():
 
 
 def plot(n):
+    avg_return = []
+    avg_return_stdev = []
+    avg_queue = []
+    avg_queue_stdev = []
     for i in range(9):
         model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
         model.set_env(env)
@@ -144,7 +148,16 @@ def plot(n):
               statistics.stdev(list_sums))
         print(f"DeepRL {i + 1}: average queue length: ", statistics.mean(list_qs), ", stdev = ",
               statistics.stdev(list_qs))
-
+        # Creating vector for variables
+        avg_return.append(statistics.mean(list_sums))
+        avg_return_stdev.append(statistics.stdev(list_qs))
+        avg_queue.append(statistics.mean(list_qs))
+        avg_queue_stdev.append(statistics.stdev(list_qs))
+        if i == 8:
+            print("average return = ", avg_return)
+            print("avg return stdev = ", avg_return_stdev)
+            print("average queue length = ", avg_queue)
+            print("avg queue stdev = ", avg_return_stdev)
 
 if __name__ == "__main__":
     env_id = "vehicle-v0"
