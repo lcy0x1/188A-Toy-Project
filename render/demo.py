@@ -56,31 +56,55 @@ class Station(RenderObject):
 
     def __init__(self, index, n):
         super().__init__()
-        self.x = 400 + 300 * math.cos(index / n * 2 * math.pi)
-        self.y = 400 + 300 * math.sin(index / n * 2 * math.pi)
+        self.x = 500 + 400 * math.cos(index / n * 2 * math.pi)
+        self.y = 500 + 400 * math.sin(index / n * 2 * math.pi)
         self.vehicles: List[Cars] = []
-        self.sprite = Circle(Point(self.x, self.y), 10)
+        self.sprite = Circle(Point(self.x, self.y), 15)
         self.sprite.draw(win)
 
         self.queue_sprite = [[Image(Point((self.x + 20 * (j + 1)), (self.y - 20)),
                                     f"./gostation{i + 1}.gif") for j in range(4)] for i in range(3)]
+        self.queue_mid = [[Image(Point((self.x + 20 * (j + 1)), (self.y - 20)),
+                                 f"./gostation{i + 1}.gif") for j in range(4)] for i in range(3)]
         self.Queue = []
         self.newQueue = []
         self.nowindex = index
         self.next_vehicle_index = 0
-
-        Text(Point(self.x, self.y), f"{index + 1}").draw(win)
+        self.oldqueue_mid = 0
+        self.oldquemindraw = [0] * 3
+        num = Text(Point(self.x, self.y), f"{index + 1}")
+        num.setSize(18)
+        num.draw(win)
 
     def drawQueue(self, start):
 
         if start == 1:
             old_sprite_ind = 0
+
             for dst in range(3):
                 if self.nowindex == dst:
                     continue
                 for q in range(self.Queue[dst]):
                     self.queue_sprite[dst][old_sprite_ind].undraw()
                     old_sprite_ind = old_sprite_ind + 1
+                # if self.oldqueue_mid == 1:
+                #     for i in range(self.oldquemindraw[dst]):
+                #         self.queue_mid[dst][i].undraw()
+                #     self.oldquemindraw[dst] = 0
+                #
+                #
+                # for z in range(self.Queue[dst]-self.newQueue[dst]):
+                #     if self.nowindex == 0 and dst == 2:
+                #         dx = -100
+                #         dy = -100
+                #     elif self.nowindex == 0 and dst == 1:
+                #         dx = -100
+                #         dy = 100
+                #     self.queue_mid[dst][self.oldquemindraw[dst]].move(dx, dy)
+                #     self.queue_mid[dst][self.oldquemindraw[dst]].draw(win)
+                #
+                #     self.oldqueue_mid = 1
+                #     self.oldquemindraw[dst] +=1
 
         sprite_ind = 0
         for dst in range(3):
@@ -89,7 +113,8 @@ class Station(RenderObject):
             for q in range(self.newQueue[dst]):
                 self.queue_sprite[dst][sprite_ind].draw(win)
                 sprite_ind = sprite_ind + 1
-
+        print(self.Queue)
+        print(self.newQueue)
         self.Queue = self.newQueue
 
     def move_vehicle(self, target, n):
@@ -117,6 +142,9 @@ class Cars(RenderObject):
         self.target_x = self.x
         self.target_y = self.y
         stations[self.index].vehicles.append(self)
+        self.sprite.move(self.x, self.y)
+        self.current_x = self.x
+        self.current_y = self.y
 
     def set_index(self, i):
         old_station = self.index
@@ -177,6 +205,7 @@ class Price(object):
                 if src == dst:
                     continue
                 p: Text = self.price[src][dst]
+                p.setSize(18)
                 p.setText("$" + str(round(price[src][dst], 2)))
 
 
@@ -185,26 +214,37 @@ class rewards(object):
         self.totalreward = 0
         self.reward = 0
         rewardtitle = Text(Point(300, 50), "Reward:")
+        rewardtitle.setSize(18)
         rewardtitle.draw(win)
         totalrewardtitle = Text(Point(300, 80), "Total Reward:")
+        totalrewardtitle.setSize(18)
         totalrewardtitle.draw(win)
+        self.steptitle = Text(Point(100, 50), "Step: ")
+        self.steptitle.setSize(18)
+        self.steptitle.draw(win)
         self.p = Text(Point(400, 50), round(self.reward, 2))
+        self.p.setSize(18)
         self.q = Text(Point(400, 80), round(self.totalreward, 2))
+        self.q.setSize(18)
+        self.z = Text(Point(150, 50), 0)
+        self.z.setSize(18)
 
-    def drawreward(self, reward, start):
+    def drawreward(self, reward, start, step):
         if start == 0:
+            self.reward = reward
+            self.totalreward = self.totalreward + reward
             self.p.setText(round(self.reward, 2))
             self.q.setText(round(self.totalreward, 2))
             self.p.draw(win)
             self.q.draw(win)
+            self.z.draw(win)
+
+        else:
             self.reward = reward
             self.totalreward = self.totalreward + reward
-        else:
-
             self.p.setText(round(self.reward, 2))
             self.q.setText(round(self.totalreward, 2))
-            self.reward = reward
-            self.totalreward = self.totalreward + reward
+            self.z.setText(step)
 
 
 def moving():
@@ -228,8 +268,8 @@ def moving():
 if __name__ == "__main__":
     container = Container()
     start = 0
-
-    win = GraphWin("My Circle", 800, 800)
+    step = 0
+    win = GraphWin("My demo", 1000, 900)
 
     stations = [Station(i, 3) for i in range(3)]
     cars = [Cars() for i in range(3)]
@@ -243,14 +283,20 @@ if __name__ == "__main__":
             ind = ind + 1
 
     while True:
-        price, motion, reward = moving()
+        try:
+            win.getMouse()
+        except Exception as inst:
+            break
 
+        price, motion, reward = moving()
+        Reward.drawreward(reward, start, step)
         prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
+
         for x in range(3):
             stations[x].newQueue = allqueue[x]
             stations[x].drawQueue(start)
-        Reward.drawreward(reward, start)
+
         n = 30
         for i in range(n):
             for c in cars:
@@ -259,7 +305,5 @@ if __name__ == "__main__":
         for c in cars:
             c.update()
         start = 1
-        try:
-            win.getMouse()  # pause for click in window
-        except Exception as inst:
-            break
+        step += 1
+        # pause for click in window
