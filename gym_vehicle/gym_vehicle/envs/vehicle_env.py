@@ -71,7 +71,10 @@ class VehicleEnv(gym.Env):
 
     def step(self, act):
         action = VehicleAction(self, act)
-        utility = 0
+        op_cost = 0
+        wait_pen = 0
+        overf = 0
+        rew = 0
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
@@ -80,15 +83,16 @@ class VehicleEnv(gym.Env):
                 self.vehicles[i] = self.vehicles[i] - veh_motion
                 self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
-                utility = utility - veh_motion * self.operating_cost
-                utility = utility - self.queue[i][j] * self.waiting_penalty
+                op_cost += veh_motion * self.operating_cost
+                wait_pen += self.queue[i][j] * self.waiting_penalty
                 price = action.price[i][j]
                 request = min(self.poisson_cap, self.random.poisson(self.poisson_param * (1 - price)))
                 act_req = min(request, self.queue_size - self.queue[i][j])
-                utility = utility - (request - act_req) * self.overflow
+                overf += (request - act_req) * self.overflow
                 self.queue[i][j] = self.queue[i][j] + act_req
-                utility = utility + act_req * action.price[i][j]
-        return self.to_observation(), utility, False, {}
+                rew += act_req * action.price[i][j]
+        debuf_info = {'reward': rew, 'operating_cost': op_cost, 'wait_penalty': wait_pen, 'overflow': overf}
+        return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
 
     def reset(self):
         for i in range(self.node):

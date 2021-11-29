@@ -52,6 +52,59 @@ class RenderObject(object):
         pass
 
 
+class Customer(RenderObject):
+
+    def __init__(self, x, y, i, j):
+        super().__init__()
+        self.sprite = Image(Point(20, - 20), f"./gostation{i + 1}.gif")
+        self.position = j
+        self.dst = i
+        self.x = x + 20 * j
+        self.y = y
+        self.old_x = self.x
+        self.old_y = self.y
+        self.sprite.move(self.x, self.y)
+        self.current_x = self.x
+        self.current_y = self.y
+        self.target_x = self.x
+        self.target_y = self.y
+        self.status = 0
+
+    def render(self, time):
+        nx = (self.target_x - self.old_x) * time + self.old_x
+        ny = (self.target_y - self.old_y) * time + self.old_y
+        self.sprite.move(nx - self.current_x, ny - self.current_y)
+        self.current_x = nx
+        self.current_y = ny
+
+    def set_enter(self, index):
+        self.old_x = self.x - (stations[index].x - 500)
+        self.old_y = self.y - (stations[index].y - 500)
+        self.sprite.move(self.old_x - self.current_x, self.old_y - self.current_y)
+        self.current_x = self.old_x
+        self.current_y = self.old_y
+
+    def set_wait(self, advance):
+        self.old_x = self.x + 20 * advance
+        self.old_y = self.y
+        self.sprite.move(self.old_x - self.current_x, self.old_y - self.current_y)
+        self.current_x = self.old_x
+        self.current_y = self.old_y
+
+    def update(self):
+        self.old_x = self.x
+        self.old_y = self.y
+        self.sprite.move(self.old_x - self.current_x, self.old_y - self.current_y)
+        self.current_x = self.x
+        self.current_y = self.y
+
+    def draw(self, window):
+        self.sprite.draw(window)
+
+    def undraw(self):
+        self.sprite.undraw()
+
+
 class Station(RenderObject):
 
     def __init__(self, index, n):
@@ -62,60 +115,53 @@ class Station(RenderObject):
         self.sprite = Circle(Point(self.x, self.y), 15)
         self.sprite.draw(win)
 
-        self.queue_sprite = [[Image(Point((self.x + 20 * (j + 1)), (self.y - 20)),
-                                    f"./gostation{i + 1}.gif") for j in range(4)] for i in range(3)]
-        self.queue_mid = [[Image(Point((self.x + 20 * (j + 1)), (self.y - 20)),
-                                 f"./gostation{i + 1}.gif") for j in range(4)] for i in range(3)]
-        self.Queue = []
-        self.newQueue = []
+        self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(8)] for i in range(3)]
+
+        self.old_queue = [0, 0, 0]
+        self.target_queue = [0, 0, 0]
         self.nowindex = index
         self.next_vehicle_index = 0
-        self.oldqueue_mid = 0
-        self.oldquemindraw = [0] * 3
+        self.queue_leave = [0, 0, 0]
         num = Text(Point(self.x, self.y), f"{index + 1}")
         num.setSize(18)
         num.draw(win)
 
-    def drawQueue(self, start):
-
+    def draw_queue(self, start):
+        for qs in self.queue_sprite:
+            for q in qs:
+                q.update()
         if start == 1:
             old_sprite_ind = 0
-
             for dst in range(3):
                 if self.nowindex == dst:
                     continue
-                for q in range(self.Queue[dst]):
+                for q in range(self.old_queue[dst]):
                     self.queue_sprite[dst][old_sprite_ind].undraw()
                     old_sprite_ind = old_sprite_ind + 1
-                # if self.oldqueue_mid == 1:
-                #     for i in range(self.oldquemindraw[dst]):
-                #         self.queue_mid[dst][i].undraw()
-                #     self.oldquemindraw[dst] = 0
-                #
-                #
-                # for z in range(self.Queue[dst]-self.newQueue[dst]):
-                #     if self.nowindex == 0 and dst == 2:
-                #         dx = -100
-                #         dy = -100
-                #     elif self.nowindex == 0 and dst == 1:
-                #         dx = -100
-                #         dy = 100
-                #     self.queue_mid[dst][self.oldquemindraw[dst]].move(dx, dy)
-                #     self.queue_mid[dst][self.oldquemindraw[dst]].draw(win)
-                #
-                #     self.oldqueue_mid = 1
-                #     self.oldquemindraw[dst] +=1
-
         sprite_ind = 0
+        advance = 0
         for dst in range(3):
             if self.nowindex == dst:
                 continue
-            for q in range(self.newQueue[dst]):
+            to_leave = self.queue_leave[dst]
+            advance += to_leave
+            for q in range(self.target_queue[dst]):
+                if q < self.old_queue[dst] - to_leave:
+                    self.queue_sprite[dst][sprite_ind].set_wait(advance)
+                else:
+                    self.queue_sprite[dst][sprite_ind].set_enter(self.nowindex)
                 self.queue_sprite[dst][sprite_ind].draw(win)
                 sprite_ind = sprite_ind + 1
-        print(self.Queue)
-        print(self.newQueue)
-        self.Queue = self.newQueue
+        self.old_queue = self.target_queue
+
+    def render(self, time):
+        for qs in self.queue_sprite:
+            for q in qs:
+                q.render(time)
+
+    def remove_vehicle(self, dst, n):
+        self.next_vehicle_index -= n
+        self.queue_leave[dst] = min(self.old_queue[dst], n)
 
     def move_vehicle(self, target, n):
         for _ in range(n):
@@ -209,60 +255,63 @@ class Price(object):
                 p.setText("$" + str(round(price[src][dst], 2)))
 
 
-class rewards(object):
+class Rewards(object):
     def __init__(self):
-        self.totalreward = 0
-        self.reward = 0
-        rewardtitle = Text(Point(300, 50), "Reward:")
-        rewardtitle.setSize(18)
-        rewardtitle.draw(win)
-        totalrewardtitle = Text(Point(300, 80), "Total Reward:")
-        totalrewardtitle.setSize(18)
-        totalrewardtitle.draw(win)
-        self.steptitle = Text(Point(100, 50), "Step: ")
-        self.steptitle.setSize(18)
-        self.steptitle.draw(win)
-        self.p = Text(Point(400, 50), round(self.reward, 2))
-        self.p.setSize(18)
-        self.q = Text(Point(400, 80), round(self.totalreward, 2))
-        self.q.setSize(18)
-        self.z = Text(Point(150, 50), 0)
-        self.z.setSize(18)
+        self.total_profit = 0
+        self.profit = 0
+        profit_title = Text(Point(300, 50), "Profit:")
+        profit_title.setSize(18)
+        profit_title.draw(win)
+        tital_profit_title = Text(Point(300, 80), "Total Profit:")
+        tital_profit_title.setSize(18)
+        tital_profit_title.draw(win)
+        self.step_title = Text(Point(100, 50), "Step: ")
+        self.step_title.setSize(18)
+        self.step_title.draw(win)
+        self.profit_text = Text(Point(400, 50), round(self.profit, 2))
+        self.profit_text.setSize(18)
+        self.total_profit_text = Text(Point(400, 80), round(self.total_profit, 2))
+        self.total_profit_text.setSize(18)
+        self.step_text = Text(Point(150, 50), 0)
+        self.step_text.setSize(18)
 
-    def drawreward(self, reward, start, step):
+    def drawreward(self, reward, start, step, info):
         if start == 0:
-            self.reward = reward
-            self.totalreward = self.totalreward + reward
-            self.p.setText(round(self.reward, 2))
-            self.q.setText(round(self.totalreward, 2))
-            self.p.draw(win)
-            self.q.draw(win)
-            self.z.draw(win)
+            self.profit = reward
+            self.total_profit = self.total_profit + reward
+            self.profit_text.setText(round(self.profit, 2))
+            self.total_profit_text.setText(round(self.total_profit, 2))
+            self.profit_text.draw(win)
+            self.total_profit_text.draw(win)
+            self.step_text.draw(win)
+            print(info['operating_cost'])
 
         else:
-            self.reward = reward
-            self.totalreward = self.totalreward + reward
-            self.p.setText(round(self.reward, 2))
-            self.q.setText(round(self.totalreward, 2))
-            self.z.setText(step)
+            self.profit = reward
+            self.total_profit = self.total_profit + reward
+            self.profit_text.setText(round(self.profit, 2))
+            self.total_profit_text.setText(round(self.total_profit, 2))
+            self.step_text.setText(step)
 
 
 def moving():
     _action, _state = container.model.predict(container.state)
     action = VehicleAction(container.env, _action)
-    container.state, reward, _, _ = container.env.step(_action)
+    container.state, reward, _, info = container.env.step(_action)
     for i in range(3):
         stations[i].next_vehicle_index = len(stations[i].vehicles)
+        stations[i].queue_leave = [0, 0, 0]
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
                 continue
-            stations[i].next_vehicle_index -= action.motion[i][j]
+            stations[i].remove_vehicle(j, action.motion[i][j])
+
     for i in range(3):
         for j in range(3):
             if i == j or action.motion[i][j] == 0:
                 continue
             stations[i].move_vehicle(j, action.motion[i][j])
-    return action.price, action.motion, reward
+    return action.price, action.motion, reward, info
 
 
 if __name__ == "__main__":
@@ -274,7 +323,7 @@ if __name__ == "__main__":
     stations = [Station(i, 3) for i in range(3)]
     cars = [Cars() for i in range(3)]
     prices = Price()
-    Reward = rewards()
+    Reward = Rewards()
     ind = 0
     for i in range(3):
         n = container.state[i]
@@ -288,19 +337,22 @@ if __name__ == "__main__":
         except Exception as inst:
             break
 
-        price, motion, reward = moving()
-        Reward.drawreward(reward, start, step)
+        price, motion, reward, info = moving()
+        Reward.drawreward(reward, start, step, info)
         prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
 
         for x in range(3):
-            stations[x].newQueue = allqueue[x]
-            stations[x].drawQueue(start)
+            stations[x].target_queue = allqueue[x]
+            stations[x].draw_queue(start)
 
         n = 30
         for i in range(n):
+            t = (i + 1) / n
             for c in cars:
-                c.render((i + 1) / n)
+                c.render(t)
+            for s in stations:
+                s.render(t)
             time.sleep(1 / 30)
         for c in cars:
             c.update()

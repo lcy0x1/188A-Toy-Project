@@ -120,6 +120,8 @@ def compare():
 
 
 def plot(n):
+    ret_list = []
+    q_list = []
     for i in range(9):
         model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
         model.set_env(env)
@@ -143,6 +145,10 @@ def plot(n):
               statistics.stdev(list_sums))
         print(f"DeepRL {i + 1}: average queue length: ", statistics.mean(list_qs), ", stdev = ",
               statistics.stdev(list_qs))
+        ret_list.append(statistics.mean(list_sums))
+        q_list.append(statistics.mean(list_qs))
+    print("return curve: ", ret_list)
+    print("queue curve: ", q_list)
 
 
 if __name__ == "__main__":
@@ -151,4 +157,4 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(3)
+    plot(2)
