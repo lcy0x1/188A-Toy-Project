@@ -5,6 +5,22 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 import json
 
+# Current plan to implement integer travel time:
+
+# Need to introduce a new state to vehicles; the algorithm should
+# skip over vehicles that are currently traveling to destination (if empty,
+# can explore rerouting later).
+
+# Additionally, need to keep track of edge lengths with new variable to
+# track how far along the vehicle is along the edge. Once the vehicle arrives
+# at the new node, vehicle will be assigned a new destination.
+
+# Ideas: redefine vehicle motion and add new vehicle "traveling" state.
+#       expand state space to accommodate new states (may also need to expand
+#       action state space?)
+#       Need to modify initialization and config files to define edge lengths beforehand
+#       Try a 2 node, 1 vehicle system first to see if implemented, then test with
+#       more vehicles/nodes
 
 class VehicleAction:
 
