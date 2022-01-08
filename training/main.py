@@ -49,3 +49,5 @@ if __name__ == "__main__":
             sums = sums + rewards
         sum_list.append(sums / 1000)
     print("average return: ", sum_list)
+
+#test

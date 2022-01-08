@@ -131,17 +131,17 @@ def plot(n):
 
         list_sums = []
         list_qs = []
-        for trial in range(100):
+        for trial in range(30):
             obs = env.reset()
             sums = 0
             qs = 0
-            for _ in range(1000):
+            for _ in range(100):
                 action, _states = model.predict(obs)
                 obs, rewards, dones, info = env.step(action)
                 sums = sums + rewards
                 qs = qs + obs[2] + obs[3]
-            sums = sums / 1000
-            qs = qs / 1000
+            sums = sums / 100
+            qs = qs / 100
             list_sums.append(sums)
             list_qs.append(qs)
         print(f"DeepRL {i + 1}: average return: ", statistics.mean(list_sums), ", stdev = ",
@@ -165,4 +165,4 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(3)
+    plot(1)
