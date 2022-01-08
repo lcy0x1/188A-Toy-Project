@@ -50,4 +50,4 @@ if __name__ == "__main__":
         sum_list.append(sums / 1000)
     print("average return: ", sum_list)
 
-#test
+# test 2: doesn't appear on deepRL branch?
