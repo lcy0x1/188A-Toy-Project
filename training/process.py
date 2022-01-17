@@ -15,7 +15,6 @@ def make_env(env_id, rank, seed=0):
     def _init():
         env = gym.make(env_id)
         env.seed(seed + rank)
-        print("initial state: ", env.reset())
         return env
 
     set_random_seed(seed)
@@ -121,43 +120,36 @@ def compare():
 
 
 def plot(n):
-    avg_return = []
-    avg_return_stdev = []
-    avg_queue = []
-    avg_queue_stdev = []
+    ret_list = []
+    q_list = []
     for i in range(9):
         model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
         list_qs = []
-        for trial in range(30):
+        for trial in range(100):
             obs = env.reset()
             sums = 0
             qs = 0
-            for _ in range(100):
+            for _ in range(1000):
                 action, _states = model.predict(obs)
                 obs, rewards, dones, info = env.step(action)
                 sums = sums + rewards
                 qs = qs + obs[2] + obs[3]
-            sums = sums / 100
-            qs = qs / 100
+            sums = sums / 1000
+            qs = qs / 1000
             list_sums.append(sums)
             list_qs.append(qs)
         print(f"DeepRL {i + 1}: average return: ", statistics.mean(list_sums), ", stdev = ",
               statistics.stdev(list_sums))
         print(f"DeepRL {i + 1}: average queue length: ", statistics.mean(list_qs), ", stdev = ",
               statistics.stdev(list_qs))
-        # Creating vector for variables
-        avg_return.append(statistics.mean(list_sums))
-        avg_return_stdev.append(statistics.stdev(list_qs))
-        avg_queue.append(statistics.mean(list_qs))
-        avg_queue_stdev.append(statistics.stdev(list_qs))
-        if i == 8:
-            print("average return = ", avg_return)
-            print("avg return stdev = ", avg_return_stdev)
-            print("average queue length = ", avg_queue)
-            print("avg queue stdev = ", avg_return_stdev)
+        ret_list.append(statistics.mean(list_sums))
+        q_list.append(statistics.mean(list_qs))
+    print("return curve: ", ret_list)
+    print("queue curve: ", q_list)
+
 
 if __name__ == "__main__":
     env_id = "vehicle-v0"
@@ -165,4 +157,4 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(1)
+    plot(2)
