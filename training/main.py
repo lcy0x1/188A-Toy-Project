@@ -4,6 +4,9 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
+# Trying to import gym_vehicle -> running into import errors?
+import sys
+sys.path.insert(0, 'C:/Users/Soulget/Desktop/Temp HW files/ECE 188A/GITHUB/188A-Toy-Project/gym_vehicle')
 import gym_vehicle
 
 
@@ -38,9 +41,9 @@ if __name__ == "__main__":
 
     sum_list = []
 
-    for i in range(9):
+    for i in range(1):
         model.learn(total_timesteps=1_000_000)
-        model.save(f"./data_n3_v3_set3/{i + 1}mil")
+        model.save(f"./data_test_dump/{i + 1}mil")
         sums = 0
         obs = env.reset()
         for _ in range(1000):
