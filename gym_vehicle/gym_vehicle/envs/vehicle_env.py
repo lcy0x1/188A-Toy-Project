@@ -4,6 +4,7 @@ import pkg_resources
 from gym import error, spaces, utils
 from gym.utils import seeding
 import json
+import sys
 
 # First attempt at modifying environment; testing push
 
@@ -69,6 +70,7 @@ class VehicleEnv(gym.Env):
     def __init__(self):
         self.config = json.load(open(pkg_resources.resource_filename(__name__, "./config.json")))
         self.node = self.config["node"]
+        # Number of actual vehicles
         self.vehicle = self.config["vehicle"]
         self.poisson_param = self.config["poisson_param"]
         self.operating_cost = self.config["operating_cost"]
@@ -76,12 +78,42 @@ class VehicleEnv(gym.Env):
         self.queue_size = self.config["queue_size"]
         self.overflow = self.config["overflow"]
         self.poisson_cap = self.config["poisson_cap"]
+        # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
         self.vehicles = [0 for _ in range(self.node)]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
+
+
+        # Attempt at edge initialization
+        # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
+        # n nodes: self.edge(0) = 1->2 , 1->3 , ... 1->n , 2->1 , 2->3, ... 2->n , ... n->n-2 , n->n-1  (? edges)
+        edge_matrix = self.config["edge_lengths"]
+        edge_num = len(edge_matrix)
+        if (self.node * (self.node-1)) != edge_num:
+            print("Incorrect edge_lengths parameter. Total nodes and edges do not match!")
+            sys.exit()
+        self.edge = [[0 for _ in range(self.node)] for _ in range(self.node)]
+        tmp = 0
+        extra_obs_space = 0
+        for i in range(self.node):
+            for j in range(self.node):
+                if i == j:
+                    continue
+                else:
+                    self.edge[i][j] = edge_matrix[tmp]
+                    if edge_matrix[tmp] > 1:
+                        extra_obs_space += 1
+                    tmp = tmp + 1
+        # Initializing "travel" matrix; each position indicates a vehicle is traveling from i to j
+        # for self.travel[i][j] more time steps
+        self.travel = [(0 for _ in range(self.node)) for _ in range(self.node)]
+
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
+        # Either traveling or not -> For each node length > 1, add an additional space
+        # Ignore for now? Errors with Stable_baselines
+            # + [extra_obs_space])
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
     def seed(self, seed=None):
@@ -97,6 +129,9 @@ class VehicleEnv(gym.Env):
             for j in range(self.node):
                 if i == j:
                     continue
+                # Traveling state condition here: if "traveling," progress 1 unit of length and continue
+                # 2 node implementation ONLY for now
+
                 veh_motion = action.motion[i][j]
                 self.vehicles[i] = self.vehicles[i] - veh_motion
                 self.vehicles[j] = self.vehicles[j] + veh_motion
@@ -120,6 +155,8 @@ class VehicleEnv(gym.Env):
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
+        # Reset all edge lengths to 1
+
         return self.to_observation()
 
     def render(self, mode='human'):
