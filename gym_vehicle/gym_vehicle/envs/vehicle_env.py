@@ -93,7 +93,7 @@ class VehicleEnv(gym.Env):
             print("Incorrect edge_lengths parameter. Total nodes and edges do not match!")
             sys.exit()
         self.edge = [[0 for _ in range(self.node)] for _ in range(self.node)]
-        tmp = 0
+        # Creating 2D matrix for easier access
         extra_obs_space = 0
         for i in range(self.node):
             for j in range(self.node):
@@ -101,19 +101,20 @@ class VehicleEnv(gym.Env):
                     continue
                 else:
                     self.edge[i][j] = edge_matrix[tmp]
-                    if edge_matrix[tmp] > 1:
-                        extra_obs_space += 1
-                    tmp = tmp + 1
-        # Initializing "travel" matrix; each position indicates a vehicle is traveling from i to j
-        # for self.travel[i][j] more time steps
-        self.travel = [(0 for _ in range(self.node)) for _ in range(self.node)]
+                    if self.edge[i][j] < 1:
+                        print("Error! Edge length too short (minimum length 1).")
+                        sys.exit()
+                    if self.edge[i][j] % 1 != 0:
+                        print("Error! Edge length must be integer value.")
+                        sys.exit()
+                    # Extra observation space as each additional unit length greater than 1 is a "mini node"
+                    # Need to add to BOTH self.observation_space AND def to_observation
+                    extra_obs_space += self.edge[i][j] - 1
 
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
-        # Either traveling or not -> For each node length > 1, add an additional space
-        # Ignore for now? Errors with Stable_baselines
-            # + [extra_obs_space])
+            [self.queue_size + 1 for _ in range( (self.node + extra_obs_space) * (self.node + extra_obs_space - 1))])
+        # Increase action space as well? Think its ok for now...
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
     def seed(self, seed=None):
