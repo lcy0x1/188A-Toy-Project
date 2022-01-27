@@ -25,6 +25,14 @@ import sys
 #       Try a 2 node, 1 vehicle system first to see if implemented, then test with
 #       more vehicles/nodes
 
+# State space: Implement each instance of travel time as a separate node (inefficient, but easy)
+
+# NEED TO REDEFINE VEHICLE MOTION TO FIX DIMENSION ERRORS (self.motion)
+#       -> Must modify env.node in __init__ to include extra states
+
+extra_obs_space = 0
+
+
 class VehicleAction:
 
     def __init__(self, env, arr):
@@ -78,11 +86,8 @@ class VehicleEnv(gym.Env):
         self.queue_size = self.config["queue_size"]
         self.overflow = self.config["overflow"]
         self.poisson_cap = self.config["poisson_cap"]
-        # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
-        self.vehicles = [0 for _ in range(self.node)]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
-
 
         # Attempt at edge initialization
         # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
@@ -94,13 +99,15 @@ class VehicleEnv(gym.Env):
             sys.exit()
         self.edge = [[0 for _ in range(self.node)] for _ in range(self.node)]
         # Creating 2D matrix for easier access
-        extra_obs_space = 0
+        global extra_obs_space
+        tmp = 0
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
                 else:
                     self.edge[i][j] = edge_matrix[tmp]
+                    tmp += 1
                     if self.edge[i][j] < 1:
                         print("Error! Edge length too short (minimum length 1).")
                         sys.exit()
@@ -111,9 +118,12 @@ class VehicleEnv(gym.Env):
                     # Need to add to BOTH self.observation_space AND def to_observation
                     extra_obs_space += self.edge[i][j] - 1
 
+        # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
+        self.vehicles = [0 for _ in range(self.node + extra_obs_space)]
+
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
-            [self.queue_size + 1 for _ in range( (self.node + extra_obs_space) * (self.node + extra_obs_space - 1))])
+            [self.queue_size + 1 for _ in range((self.node + extra_obs_space) * (self.node + extra_obs_space - 1))])
         # Increase action space as well? Think its ok for now...
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
@@ -150,9 +160,16 @@ class VehicleEnv(gym.Env):
 
     def reset(self):
         for i in range(self.node):
-            self.vehicles[i] = 0
             for j in range(self.node):
                 self.queue[i][j] = 0
+                # Default edge length (before adjusting)
+                self.edge[i][j] = 1
+
+        # Reset vehicles at nodes AND in travel
+        #  ( + extra_obs_space)
+        for i in range(self.node + extra_obs_space):
+            self.vehicles[i] = 0
+
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
@@ -167,10 +184,10 @@ class VehicleEnv(gym.Env):
         pass
 
     def to_observation(self):
-        arr = [0 for _ in range(self.node * self.node)]
-        for i in range(self.node):
+        arr = [0 for _ in range((self.node * self.node) + extra_obs_space)]
+        for i in range(self.node + extra_obs_space):         # (+ extra_obs_space)
             arr[i] = self.vehicles[i]
-        ind = self.node
+        ind = self.node + extra_obs_space
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
