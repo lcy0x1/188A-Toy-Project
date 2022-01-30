@@ -30,8 +30,6 @@ import sys
 # NEED TO REDEFINE VEHICLE MOTION TO FIX DIMENSION ERRORS (self.motion)
 #       -> Must modify env.node in __init__ to include extra states
 
-extra_obs_space = 0
-
 
 class VehicleAction:
 
@@ -99,7 +97,7 @@ class VehicleEnv(gym.Env):
             sys.exit()
         self.edge = [[0 for _ in range(self.node)] for _ in range(self.node)]
         # Creating 2D matrix for easier access
-        global extra_obs_space
+        self.extra_obs_space = 0
         tmp = 0
         for i in range(self.node):
             for j in range(self.node):
@@ -116,14 +114,14 @@ class VehicleEnv(gym.Env):
                         sys.exit()
                     # Extra observation space as each additional unit length greater than 1 is a "mini node"
                     # Need to add to BOTH self.observation_space AND def to_observation
-                    extra_obs_space += self.edge[i][j] - 1
+                    self.extra_obs_space += self.edge[i][j] - 1
 
         # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
-        self.vehicles = [0 for _ in range(self.node + extra_obs_space)]
+        self.vehicles = [0 for _ in range(self.node + self.extra_obs_space)]
 
         self.observation_space = spaces.MultiDiscrete(
-            [self.vehicle + 1 for _ in range(self.node)] +
-            [self.queue_size + 1 for _ in range((self.node + extra_obs_space) * (self.node + extra_obs_space - 1))])
+            [self.vehicle + 1 for _ in range(self.node + self.extra_obs_space)] +
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
         # Increase action space as well? Think its ok for now...
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
@@ -136,6 +134,8 @@ class VehicleEnv(gym.Env):
         wait_pen = 0
         overf = 0
         rew = 0
+        # Move cars in mini-nodes ahead
+
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
@@ -144,7 +144,9 @@ class VehicleEnv(gym.Env):
                 # 2 node implementation ONLY for now
 
                 veh_motion = action.motion[i][j]
+                # Cars leaving node i
                 self.vehicles[i] = self.vehicles[i] - veh_motion
+                # Car ARRIVING at node j (adjust this)
                 self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
                 op_cost += veh_motion * self.operating_cost
@@ -166,7 +168,6 @@ class VehicleEnv(gym.Env):
                 self.edge[i][j] = 1
 
         # Reset vehicles at nodes AND in travel
-        #  ( + extra_obs_space)
         for i in range(self.node + extra_obs_space):
             self.vehicles[i] = 0
 
@@ -184,10 +185,10 @@ class VehicleEnv(gym.Env):
         pass
 
     def to_observation(self):
-        arr = [0 for _ in range((self.node * self.node) + extra_obs_space)]
-        for i in range(self.node + extra_obs_space):         # (+ extra_obs_space)
+        arr = [0 for _ in range((self.node * self.node) + self.extra_obs_space)]
+        for i in range(self.node + self.extra_obs_space):
             arr[i] = self.vehicles[i]
-        ind = self.node + extra_obs_space
+        ind = self.node + self.extra_obs_space
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
