@@ -164,9 +164,6 @@ class VehicleEnv(gym.Env):
         for i in range(self.node):
             for j in range(self.node):
                 self.queue[i][j] = 0
-                # Default edge length (before adjusting)
-                self.edge[i][j] = 1
-
         # Reset vehicles at nodes AND in travel
         for i in range(self.node + extra_obs_space):
             self.vehicles[i] = 0
