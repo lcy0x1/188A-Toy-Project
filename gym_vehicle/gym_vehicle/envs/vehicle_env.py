@@ -124,18 +124,21 @@ class VehicleEnv(gym.Env):
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
-        # Need matrix for mini-nodes [node i][node j][# of cars][length left]
-        self.mini = [[[[0 for _ in range(self.node)] for _ in range(self.node)]
-                      for _ in range(self.vehicle)] for _ in range(max(edge_matrix))]
+        self.bound = max(edge_matrix)
+        # Stores number of vehicles at mini node between i and j
+        self.mini.vehicles = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
+        # Stores length left in mini node between i and j
+        self.mini.length = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
 
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
-                for m in range(self.vehicle):
-                    for n in range(max(edge_matrix)):
-                        # Defining length left -> self.edge only changes with i/j
-                        self.mini[i][j][m][n] = self.edge[i][j] - n
+                for n in range(self.bound):
+                    # Defining length left (reset to self.edge)
+                    if n > self.edge[i][j]:
+                        self.mini.length[i][j][n] = 0
+                    self.mini.length[i][j][n] = self.edge[i][j] - n
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -147,22 +150,27 @@ class VehicleEnv(gym.Env):
         overf = 0
         rew = 0
         # Move cars in mini-nodes ahead
-        # Matrix tracking mini node behavior
+        tmp = max(edge_matrix)
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
-                for m in range(self.vehicle):
-                    # EVALUATE THIS CLOSER; Maybe 4D matrix not the best way?
-                    for n in range(max(edge_matrix)):
-                        # Condition if reached end of travel
-                        if self.mini[i][j][m][n] == 1:
-                            self.vehicles[i][j] = self.vehicles[i][j] + self.mini[i][j][m][n]
-                            self.mini[i][j][m][n] = 0
-                        # Pushing number of vehicles along
-                        self.mini[i][j][m][n+1] = self.mini[i][j][m][n]
+                # Feed in cars from main node to mini nodes here???
 
-
+                # Sweeping BACKWARDS to avoid pushing vehicles multiple times in same time step
+                for m in range(self.mini.length + 1):
+                    # Skip instances of matrix with length = 0
+                    if self.mini.length[i][j][self.bound - m] == 0:
+                        continue
+                    # Stop tracking mini-node behavior and push cars to main node
+                    if self.mini.length[i][j][self.bound - m] == 1:
+                        self.vehicles[i][j] += self.mini.vehicles[i][j][self.bound - m]
+                        self.mini.vehicles[i][j][self.bound - m] = 0
+                    # Vehicles still in mini nodes (traveling)
+                    else:
+                        # Shifting vehicles further along path
+                        self.mini.vehicles[i][j][self.bound - m + 1] = self.mini.vehicles[i][j][self.bound - m]
+                        self.mini.vehicles[i][j][self.bound - m] = 0
 
         for i in range(self.node):
             for j in range(self.node):
@@ -179,6 +187,7 @@ class VehicleEnv(gym.Env):
 
                 # self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
+                # May need to adjust op_cost
                 op_cost += veh_motion * self.operating_cost
                 wait_pen += self.queue[i][j] * self.waiting_penalty
                 price = action.price[i][j]
