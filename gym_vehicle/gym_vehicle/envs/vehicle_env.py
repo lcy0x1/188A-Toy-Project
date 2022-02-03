@@ -122,8 +122,20 @@ class VehicleEnv(gym.Env):
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node + self.extra_obs_space)] +
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
-        # Increase action space as well? Think its ok for now...
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
+
+        # Need matrix for mini-nodes [node i][node j][# of cars][length left]
+        self.mini = [[[[0 for _ in range(self.node)] for _ in range(self.node)]
+                      for _ in range(self.vehicle)] for _ in range(max(edge_matrix))]
+
+        for i in range(self.node):
+            for j in range(self.node):
+                if i == j:
+                    continue
+                for m in range(self.vehicle):
+                    for n in range(max(edge_matrix)):
+                        # Defining length left -> self.edge only changes with i/j
+                        self.mini[i][j][m][n] = self.edge[i][j] - n
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -135,6 +147,22 @@ class VehicleEnv(gym.Env):
         overf = 0
         rew = 0
         # Move cars in mini-nodes ahead
+        # Matrix tracking mini node behavior
+        for i in range(self.node):
+            for j in range(self.node):
+                if i == j:
+                    continue
+                for m in range(self.vehicle):
+                    # EVALUATE THIS CLOSER; Maybe 4D matrix not the best way?
+                    for n in range(max(edge_matrix)):
+                        # Condition if reached end of travel
+                        if self.mini[i][j][m][n] == 1:
+                            self.vehicles[i][j] = self.vehicles[i][j] + self.mini[i][j][m][n]
+                            self.mini[i][j][m][n] = 0
+                        # Pushing number of vehicles along
+                        self.mini[i][j][m][n+1] = self.mini[i][j][m][n]
+
+
 
         for i in range(self.node):
             for j in range(self.node):
@@ -147,7 +175,9 @@ class VehicleEnv(gym.Env):
                 # Cars leaving node i
                 self.vehicles[i] = self.vehicles[i] - veh_motion
                 # Car ARRIVING at node j (adjust this)
-                self.vehicles[j] = self.vehicles[j] + veh_motion
+                # self.vehicles adjustment handled in mini_node portion
+
+                # self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
                 op_cost += veh_motion * self.operating_cost
                 wait_pen += self.queue[i][j] * self.waiting_penalty
