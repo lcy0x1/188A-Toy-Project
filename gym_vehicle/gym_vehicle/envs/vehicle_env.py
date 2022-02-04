@@ -166,11 +166,13 @@ class VehicleEnv(gym.Env):
                     if self.mini.length[i][j][self.bound - m] == 1:
                         self.vehicles[i][j] += self.mini.vehicles[i][j][self.bound - m]
                         self.mini.vehicles[i][j][self.bound - m] = 0
+                        op_cost += self.mini.vehicles[i][j][self.bound - m] * self.operating_cost
                     # Vehicles still in mini nodes (traveling)
                     else:
                         # Shifting vehicles further along path
                         self.mini.vehicles[i][j][self.bound - m + 1] = self.mini.vehicles[i][j][self.bound - m]
                         self.mini.vehicles[i][j][self.bound - m] = 0
+                        op_cost += self.mini.vehicles[i][j][self.bound - m] * self.operating_cost
 
         for i in range(self.node):
             for j in range(self.node):
