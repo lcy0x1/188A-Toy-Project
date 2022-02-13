@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     sum_list = []
 
-    for i in range(1):
+    for i in range(4):
         model.learn(total_timesteps=1_000_000)
         model.save(f"./data_test_dump/{i + 1}mil")
         sums = 0
@@ -52,5 +52,3 @@ if __name__ == "__main__":
             sums = sums + rewards
         sum_list.append(sums / 1000)
     print("average return: ", sum_list)
-
-# test 2: doesn't appear on deepRL branch?

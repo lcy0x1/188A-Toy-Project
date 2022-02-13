@@ -181,18 +181,16 @@ class VehicleEnv(gym.Env):
                     continue
                 veh_motion = action.motion[i][j]
 
-                # Statement to feed to mini-nodes if necessary
-                if action.motion[i][j] != 0:
-                    # Only feed to mini nodes if required (edge length > 1)
-                    if self.mini_length[i][j][0] > 1:
-                        self.mini_vehicles[i][j][0] = action.motion[i][j]
+                # Statement to feed to mini-nodes
+                # Only feed to mini nodes if required (edge length > 1)   ->   Feed to first mini-node
+                if self.mini_length[i][j][0] > 1:
+                    self.mini_vehicles[i][j][0] = veh_motion
+                else:
+                    # Cars arriving at node j (for length 1 case)
+                    self.vehicles[j] = self.vehicles[j] + veh_motion
 
                 # Cars leaving node i
                 self.vehicles[i] = self.vehicles[i] - veh_motion
-                # Car ARRIVING at node j (adjust this)
-                # self.vehicles adjustment handled in mini_node portion
-
-                # self.vehicles[j] = self.vehicles[j] + veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
                 # May need to adjust op_cost
                 op_cost += veh_motion * self.operating_cost
