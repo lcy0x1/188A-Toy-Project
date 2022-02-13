@@ -138,7 +138,8 @@ class VehicleEnv(gym.Env):
                     # Defining length left (reset to self.edge)
                     if n > self.edge[i][j]:
                         self.mini.length[i][j][n] = 0
-                    self.mini.length[i][j][n] = self.edge[i][j] - n
+                    else:
+                        self.mini.length[i][j][n] = self.edge[i][j] - n
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -178,10 +179,14 @@ class VehicleEnv(gym.Env):
             for j in range(self.node):
                 if i == j:
                     continue
-                # Traveling state condition here: if "traveling," progress 1 unit of length and continue
-                # 2 node implementation ONLY for now
-
                 veh_motion = action.motion[i][j]
+
+                # Statement to feed to mini-nodes if necessary
+                if action.motion[i][j] != 0:
+                    # Only feed to mini nodes if required (edge length > 1)
+                    if self.mini.length[i][j][0] > 1:
+                        self.mini.vehicles[i][j][0] = action.motion[i][j]
+
                 # Cars leaving node i
                 self.vehicles[i] = self.vehicles[i] - veh_motion
                 # Car ARRIVING at node j (adjust this)
