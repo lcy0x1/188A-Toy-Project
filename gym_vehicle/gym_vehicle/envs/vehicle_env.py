@@ -90,8 +90,8 @@ class VehicleEnv(gym.Env):
         # Attempt at edge initialization
         # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
         # n nodes: self.edge(0) = 1->2 , 1->3 , ... 1->n , 2->1 , 2->3, ... 2->n , ... n->n-2 , n->n-1  (? edges)
-        edge_matrix = self.config["edge_lengths"]
-        edge_num = len(edge_matrix)
+        self.edge_matrix = self.config["edge_lengths"]
+        edge_num = len(self.edge_matrix)
         if (self.node * (self.node-1)) != edge_num:
             print("Incorrect edge_lengths parameter. Total nodes and edges do not match!")
             sys.exit()
@@ -104,7 +104,7 @@ class VehicleEnv(gym.Env):
                 if i == j:
                     continue
                 else:
-                    self.edge[i][j] = edge_matrix[tmp]
+                    self.edge[i][j] = self.edge_matrix[tmp]
                     tmp += 1
                     if self.edge[i][j] < 1:
                         print("Error! Edge length too short (minimum length 1).")
@@ -124,11 +124,11 @@ class VehicleEnv(gym.Env):
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
-        self.bound = max(edge_matrix)
+        self.bound = max(self.edge_matrix)
         # Stores number of vehicles at mini node between i and j
-        self.mini.vehicles = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
+        self.mini_vehicles = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
         # Stores length left in mini node between i and j
-        self.mini.length = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
+        self.mini_length = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
 
         for i in range(self.node):
             for j in range(self.node):
@@ -137,9 +137,9 @@ class VehicleEnv(gym.Env):
                 for n in range(self.bound):
                     # Defining length left (reset to self.edge)
                     if n > self.edge[i][j]:
-                        self.mini.length[i][j][n] = 0
+                        self.mini_length[i][j][n] = 0
                     else:
-                        self.mini.length[i][j][n] = self.edge[i][j] - n
+                        self.mini_length[i][j][n] = self.edge[i][j] - n
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -151,7 +151,7 @@ class VehicleEnv(gym.Env):
         overf = 0
         rew = 0
         # Move cars in mini-nodes ahead
-        tmp = max(edge_matrix)
+        tmp = max(self.edge_matrix)
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
@@ -159,21 +159,21 @@ class VehicleEnv(gym.Env):
                 # Feed in cars from main node to mini nodes here???
 
                 # Sweeping BACKWARDS to avoid pushing vehicles multiple times in same time step
-                for m in range(self.mini.length + 1):
+                for m in range(1, self.bound):
                     # Skip instances of matrix with length = 0
-                    if self.mini.length[i][j][self.bound - m] == 0:
+                    if self.mini_length[i][j][self.bound - m] == 0:
                         continue
                     # Stop tracking mini-node behavior and push cars to main node
-                    if self.mini.length[i][j][self.bound - m] == 1:
-                        self.vehicles[i][j] += self.mini.vehicles[i][j][self.bound - m]
-                        self.mini.vehicles[i][j][self.bound - m] = 0
-                        op_cost += self.mini.vehicles[i][j][self.bound - m] * self.operating_cost
+                    if self.mini_length[i][j][self.bound - m] == 1:
+                        self.vehicles[j] += self.mini_vehicles[i][j][self.bound - m]
+                        self.mini_vehicles[i][j][self.bound - m] = 0
+                        op_cost += self.mini_vehicles[i][j][self.bound - m] * self.operating_cost
                     # Vehicles still in mini nodes (traveling)
                     else:
                         # Shifting vehicles further along path
-                        self.mini.vehicles[i][j][self.bound - m + 1] = self.mini.vehicles[i][j][self.bound - m]
-                        self.mini.vehicles[i][j][self.bound - m] = 0
-                        op_cost += self.mini.vehicles[i][j][self.bound - m] * self.operating_cost
+                        self.mini_vehicles[i][j][self.bound - m + 1] = self.mini_vehicles[i][j][self.bound - m]
+                        self.mini_vehicles[i][j][self.bound - m] = 0
+                        op_cost += self.mini_vehicles[i][j][self.bound - m] * self.operating_cost
 
         for i in range(self.node):
             for j in range(self.node):
@@ -184,8 +184,8 @@ class VehicleEnv(gym.Env):
                 # Statement to feed to mini-nodes if necessary
                 if action.motion[i][j] != 0:
                     # Only feed to mini nodes if required (edge length > 1)
-                    if self.mini.length[i][j][0] > 1:
-                        self.mini.vehicles[i][j][0] = action.motion[i][j]
+                    if self.mini_length[i][j][0] > 1:
+                        self.mini_vehicles[i][j][0] = action.motion[i][j]
 
                 # Cars leaving node i
                 self.vehicles[i] = self.vehicles[i] - veh_motion
@@ -211,7 +211,7 @@ class VehicleEnv(gym.Env):
             for j in range(self.node):
                 self.queue[i][j] = 0
         # Reset vehicles at nodes AND in travel
-        for i in range(self.node + extra_obs_space):
+        for i in range(self.node + self.extra_obs_space):
             self.vehicles[i] = 0
 
         for i in range(self.vehicle):
