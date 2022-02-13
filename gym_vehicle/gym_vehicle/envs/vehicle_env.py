@@ -6,6 +6,7 @@ from gym.utils import seeding
 import json
 import sys
 
+
 # First attempt at modifying environment; testing push
 
 # Current plan to implement integer travel time:
@@ -90,56 +91,43 @@ class VehicleEnv(gym.Env):
         # Attempt at edge initialization
         # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
         # n nodes: self.edge(0) = 1->2 , 1->3 , ... 1->n , 2->1 , 2->3, ... 2->n , ... n->n-2 , n->n-1  (? edges)
-        self.edge_matrix = self.config["edge_lengths"]
-        edge_num = len(self.edge_matrix)
-        if (self.node * (self.node-1)) != edge_num:
+        self.edge_list = self.config["edge_lengths"]
+        self.edge_matrix = [[0 for _ in range(self.node)] for _ in range(self.node)]
+        self.bounds = [0 for _ in range(self.node)]
+        self.fill_edge_matrix()
+
+        # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
+        self.vehicles = [0 for _ in range(self.node)]
+
+        self.observation_space = spaces.MultiDiscrete(
+            [self.vehicle + 1 for _ in range(sum(self.bounds))] +
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
+        self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
+
+        # Stores number of vehicles at mini node between i and j
+        self.mini_vehicles = [[[0 for _ in range(self.edge_matrix[i][j] - 1)]
+                               for j in range(self.node)] for i in range(self.node)]
+
+    def fill_edge_matrix(self):
+        edge_num = len(self.edge_list)
+        if (self.node * (self.node - 1)) != edge_num:
             print("Incorrect edge_lengths parameter. Total nodes and edges do not match!")
             sys.exit()
-        self.edge = [[0 for _ in range(self.node)] for _ in range(self.node)]
         # Creating 2D matrix for easier access
-        self.extra_obs_space = 0
         tmp = 0
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
-                else:
-                    self.edge[i][j] = self.edge_matrix[tmp]
-                    tmp += 1
-                    if self.edge[i][j] < 1:
-                        print("Error! Edge length too short (minimum length 1).")
-                        sys.exit()
-                    if self.edge[i][j] % 1 != 0:
-                        print("Error! Edge length must be integer value.")
-                        sys.exit()
-                    # Extra observation space as each additional unit length greater than 1 is a "mini node"
-                    # Need to add to BOTH self.observation_space AND def to_observation
-                    self.extra_obs_space += self.edge[i][j] - 1
-
-        # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
-        self.vehicles = [0 for _ in range(self.node + self.extra_obs_space)]
-
-        self.observation_space = spaces.MultiDiscrete(
-            [self.vehicle + 1 for _ in range(self.node + self.extra_obs_space)] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
-        self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
-
-        self.bound = max(self.edge_matrix)
-        # Stores number of vehicles at mini node between i and j
-        self.mini_vehicles = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
-        # Stores length left in mini node between i and j
-        self.mini_length = [[[0 for _ in range(self.node)] for _ in range(self.node)] for _ in range(self.bound)]
-
-        for i in range(self.node):
-            for j in range(self.node):
-                if i == j:
-                    continue
-                for n in range(self.bound):
-                    # Defining length left (reset to self.edge)
-                    if n > self.edge[i][j]:
-                        self.mini_length[i][j][n] = 0
-                    else:
-                        self.mini_length[i][j][n] = self.edge[i][j] - n
+                self.edge_matrix[i][j] = self.edge_list[tmp]
+                self.bounds[j] = max(self.bounds[j], self.edge_matrix[i][j])
+                tmp += 1
+                if self.edge_matrix[i][j] < 1:
+                    print("Error! Edge length too short (minimum length 1).")
+                    sys.exit()
+                if self.edge_matrix[i][j] % 1 != 0:
+                    print("Error! Edge length must be integer value.")
+                    sys.exit()
 
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
@@ -151,46 +139,39 @@ class VehicleEnv(gym.Env):
         overf = 0
         rew = 0
         # Move cars in mini-nodes ahead
-        tmp = max(self.edge_matrix)
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
-                # Feed in cars from main node to mini nodes here???
-
                 # Sweeping BACKWARDS to avoid pushing vehicles multiple times in same time step
-                for m in range(1, self.bound):
-                    # Skip instances of matrix with length = 0
-                    if self.mini_length[i][j][self.bound - m] == 0:
-                        continue
-                    # Stop tracking mini-node behavior and push cars to main node
-                    if self.mini_length[i][j][self.bound - m] == 1:
-                        self.vehicles[j] += self.mini_vehicles[i][j][self.bound - m]
-                        self.mini_vehicles[i][j][self.bound - m] = 0
-                        op_cost += self.mini_vehicles[i][j][self.bound - m] * self.operating_cost
-                    # Vehicles still in mini nodes (traveling)
+                for m in range(self.edge_matrix[i][j] - 1):
+                    if m == 0:
+                        # Stop tracking mini-node behavior and push cars to main node
+                        self.vehicles[j] += self.mini_vehicles[i][j][m]
                     else:
+                        # Vehicles still in mini nodes (traveling)
                         # Shifting vehicles further along path
-                        self.mini_vehicles[i][j][self.bound - m + 1] = self.mini_vehicles[i][j][self.bound - m]
-                        self.mini_vehicles[i][j][self.bound - m] = 0
-                        op_cost += self.mini_vehicles[i][j][self.bound - m] * self.operating_cost
+                        self.mini_vehicles[i][j][m - 1] = self.mini_vehicles[i][j][m]
+                    op_cost += self.mini_vehicles[i][j][m] * self.operating_cost
+                    self.mini_vehicles[i][j][m] = 0
 
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
                 veh_motion = action.motion[i][j]
-
                 # Statement to feed to mini-nodes
                 # Only feed to mini nodes if required (edge length > 1)   ->   Feed to first mini-node
-                if self.mini_length[i][j][0] > 1:
-                    self.mini_vehicles[i][j][0] = veh_motion
+                if self.edge_matrix[i][j] > 1:
+                    # for distance 2, it feeds to the 1st mininode (index 0)
+                    # for distance 5, it feeds to the 4th mininode (index 3)
+                    self.mini_vehicles[i][j][self.edge_matrix[i][j] - 2] += veh_motion
                 else:
                     # Cars arriving at node j (for length 1 case)
-                    self.vehicles[j] = self.vehicles[j] + veh_motion
+                    self.vehicles[j] += veh_motion
 
                 # Cars leaving node i
-                self.vehicles[i] = self.vehicles[i] - veh_motion
+                self.vehicles[i] -= veh_motion
                 self.queue[i][j] = max(0, self.queue[i][j] - veh_motion)
                 # May need to adjust op_cost
                 op_cost += veh_motion * self.operating_cost
@@ -205,17 +186,17 @@ class VehicleEnv(gym.Env):
         return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
 
     def reset(self):
+        # Reset queue, vehicles at nodes AND in travel
         for i in range(self.node):
+            self.vehicles[i] = 0
             for j in range(self.node):
                 self.queue[i][j] = 0
-        # Reset vehicles at nodes AND in travel
-        for i in range(self.node + self.extra_obs_space):
-            self.vehicles[i] = 0
+                for k in range(self.edge_matrix[i][j] - 1):
+                    self.mini_vehicles[i][j][k] = 0
 
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
-        # Reset all edge lengths to 1
 
         return self.to_observation()
 
@@ -226,14 +207,23 @@ class VehicleEnv(gym.Env):
         pass
 
     def to_observation(self):
-        arr = [0 for _ in range((self.node * self.node) + self.extra_obs_space)]
-        for i in range(self.node + self.extra_obs_space):
-            arr[i] = self.vehicles[i]
-        ind = self.node + self.extra_obs_space
+        arr = [0 for _ in range((self.node * self.node + sum(self.bounds) - self.node))]
+        ind = 0
+        for i in range(self.node):
+            arr[ind] = self.vehicles[i]
+            ind += 1
+        for j in range(self.node):
+            sums = [0 for _ in range(self.bounds[j] - 1)]
+            for i in range(self.node):
+                for k in range(self.edge_matrix[i][j] - 1):
+                    sums[k] += self.mini_vehicles[i][j][k]
+            for k in range(self.bounds[j] - 1):
+                arr[ind] += sums[k]
+                ind += 1
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
                     continue
                 arr[ind] = self.queue[i][j]
-                ind = ind + 1
+                ind += 1
         return arr
