@@ -6,6 +6,10 @@
   "operating_cost": 0.1,
   "waiting_penalty": 0.2,
   "overflow": 100,
-  "poisson_cap": 3,
-  "edge_lengths": [1,2]
+  "poisson_cap": 5,
+  "edge_lengths": [1,2],
+
+  //added items
+  "poisson_param_cap": 5,
+  "time_unit": 24,//(time units per day)
 }

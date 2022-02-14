@@ -54,17 +54,19 @@ class VehicleEnv(gym.Env):
         self.node = self.config["node"]
         # Number of actual vehicles
         self.vehicle = self.config["vehicle"]
-        self.poisson_param = self.config["poisson_param"]
+        #self.poisson_param = self.config["poisson_param"]
         self.operating_cost = self.config["operating_cost"]
         self.waiting_penalty = self.config["waiting_penalty"]
         self.queue_size = self.config["queue_size"]
         self.overflow = self.config["overflow"]
         self.poisson_cap = self.config["poisson_cap"]
+        self.poisson_param_cap = self.config["poisson_param_cap"] #used to adjust the cap pf poisson_param
         # self.vehicles != self.vehicle -> this variable defines # of vehicles at a specific node
         self.vehicles = [0 for _ in range(self.node)]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
-
+        self.time = 0 #time initiation, it indicates the number of steps
+        self.time_unit = self.config["time_unit"]
 
         # Attempt at edge initialization
         # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
@@ -92,7 +94,7 @@ class VehicleEnv(gym.Env):
 
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))] + [self.time_unit]) ###########################################
         # Either traveling or not -> For each node length > 1, add an additional space
         # Ignore for now? Errors with Stable_baselines
             # + [extra_obs_space])
@@ -121,13 +123,26 @@ class VehicleEnv(gym.Env):
                 op_cost += veh_motion * self.operating_cost
                 wait_pen += self.queue[i][j] * self.waiting_penalty
                 price = action.price[i][j]
+                #self.poisson_param = math.floor(self.poisson_param_cap *(0.5676 + (-0.2124)*math.cos(w*t) + (-0.4349)*math.sin(w*t) + (0.0187)*math.cos(2*w*t) + (-0.0543)*math.sin(2*w*t)))
+                demand_calculator()
                 request = min(self.poisson_cap, self.random.poisson(self.poisson_param * (1 - price)))
                 act_req = min(request, self.queue_size - self.queue[i][j])
                 overf += (request - act_req) * self.overflow
                 self.queue[i][j] = self.queue[i][j] + act_req
                 rew += act_req * action.price[i][j]
+                self.time = (self.time + 24/self.time_unit) % 24
         debuf_info = {'reward': rew, 'operating_cost': op_cost, 'wait_penalty': wait_pen, 'overflow': overf}
         return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
+
+    #######################################################
+    def demand_calculator(self):
+        t = self.time * (24/self.time_unit) #step number * hours per step
+        w = 2 * math.pi / 24 #make the fourier fitiing periodical
+        self.poisson_param = math.floor(self.poisson_param_cap * (
+                    0.5676 + (-0.2124) * math.cos(w * t) + (-0.4349) * math.sin(w * t) + (0.0187) *
+                    math.cos(2 * w * t) + (-0.0543) * math.sin(2 * w * t)))
+        return self.poisson_param
+    #######################################################
 
     def reset(self):
         for i in range(self.node):
@@ -148,7 +163,7 @@ class VehicleEnv(gym.Env):
         pass
 
     def to_observation(self):
-        arr = [0 for _ in range(self.node * self.node)]
+        arr = [0 for _ in range(self.node * self.node + 1)]
         for i in range(self.node):
             arr[i] = self.vehicles[i]
         ind = self.node
@@ -158,4 +173,5 @@ class VehicleEnv(gym.Env):
                     continue
                 arr[ind] = self.queue[i][j]
                 ind = ind + 1
+        arr[ind] = self.time % self.time_unit #####################################
         return arr
