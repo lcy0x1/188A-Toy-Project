@@ -11,5 +11,5 @@
 
   //added items
   "poisson_param_cap": 5,
-  "time_unit": 24,//(time units per day)
+  "time_unit": 24,
 }

@@ -173,5 +173,5 @@ class VehicleEnv(gym.Env):
                     continue
                 arr[ind] = self.queue[i][j]
                 ind = ind + 1
-        arr[ind] = self.time % self.time_unit #####################################
+        arr[ind] = self.time % self.time_unit ####################################
         return arr
