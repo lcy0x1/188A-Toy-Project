@@ -155,6 +155,8 @@ class VehicleEnv(gym.Env):
                     op_cost += self.mini_vehicles[i][j][m] * self.operating_cost
                     self.mini_vehicles[i][j][m] = 0
 
+        # Change self.mini_vehicles s.t. [i][j] = nodes, [m] = distance left, value of matrix = # of cars
+
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:

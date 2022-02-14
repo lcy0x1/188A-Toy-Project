@@ -124,8 +124,8 @@ def compare():
 def plot(n):
     ret_list = []
     q_list = []
-    for i in range(9):
-        model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
+    for i in range(5):
+        model = PPO.load(f"./data_n3_v3_edge{n}/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
@@ -159,4 +159,4 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(2)
+    plot(1)
