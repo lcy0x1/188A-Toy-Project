@@ -105,17 +105,36 @@ class Customer(RenderObject):
         self.sprite.undraw()
 
 
+# class small_node(RenderObject):
+#     def __init__(self, startpoint, destpoint, index, n):
+#         super().__init__()
+#         self.x = startpoint.x + (destpoint.x - startpoint.x) / (n) * (index + 1)
+#         self.y = startpoint.y + (destpoint.y - startpoint.y) / (n) * (index + 1)
+#         self.sprite = Circle(Point(self.x, self.y), 5)
+#         self.sprite.draw(win)
+#         self.next_vehicle_index = 0
+#         self.vehicles: List[Cars] = []
+#         self.next_vehicle_index = 0
+
 class Station(RenderObject):
 
     def __init__(self, index, n):
         super().__init__()
-        self.x = 500 + 400 * math.cos(index / n * 2 * math.pi)
-        self.y = 500 + 400 * math.sin(index / n * 2 * math.pi)
+        # 100 100, 900 900 , 100 900, 900 100
+        # 100 100, 100 900, 900 100, 900 900
+        # 100 100, 900 100, 100 900, 900 900
+        x1index = [-1, 1, -1, 1]
+        y1index = [-1, -1, 1, 1]
+        self.x = 350 + 200 * x1index[index]
+        self.y = 350 + 200 * y1index[index]
         self.vehicles: List[Cars] = []
         self.sprite = Circle(Point(self.x, self.y), 15)
         self.sprite.draw(win)
 
         self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(8)] for i in range(3)]
+
+        # self.smallstations: list(List[small_node])=[]
+        self.dis = list()
 
         self.old_queue = [0, 0, 0]
         self.target_queue = [0, 0, 0]
@@ -161,11 +180,22 @@ class Station(RenderObject):
 
     def remove_vehicle(self, dst, n):
         self.next_vehicle_index -= n
-        self.queue_leave[dst] = min(self.old_queue[dst], n)
+        # self.queue_leave[dst] = min(self.old_queue[dst], n)
 
     def move_vehicle(self, target, n):
         for _ in range(n):
+            # index1 = 1 if (target - self.nowindex) == 1 else 0
+            # print(index1)
+            # print(target)
+            # print(target - self.nowindex)
+            # totallen = len(self.smallstations[index1])
+            # if distance != 0:
+            #     self.smallstations[index1][totallen-distance].next_vehicle_index = 0
             self.vehicles[0].set_index(target)
+
+    # def set_smallnode(self, smallstation, dist):
+    #     self.smallstations.append(smallstation)
+    #     self.dis.append(dist)
 
 
 class Cars(RenderObject):
@@ -195,10 +225,19 @@ class Cars(RenderObject):
     def set_index(self, i):
         old_station = self.index
         self.index = i
+
         s0 = stations[old_station]
+        # if dist != 0:
+        #     currentdist = stations[old_station].dis[index]
+        #     s1 = stations[old_station].smallstations[index][currentdist - dist - 1]
+        # else:
         s1 = stations[self.index]
         self.target_x = s1.x
+
+        # if index == 0:
         self.target_y = s1.y + 30 + s1.next_vehicle_index * 20
+        # else:
+        #     self.target_y = s1.y - 30 - s1.next_vehicle_index * 20
         s1.next_vehicle_index += 1
         s0.vehicles.remove(self)
         s1.vehicles.append(self)
@@ -217,15 +256,15 @@ class Cars(RenderObject):
 
 class Price(object):
     def __init__(self):
-        self.price: List[List] = [[None for _ in range(3)] for _ in range(3)]
-        self.lines: List[List] = [[None for _ in range(3)] for _ in range(3)]
+        self.price: List[List] = [[None for _ in range(4)] for _ in range(4)]
+        self.lines: List[List] = [[None for _ in range(4)] for _ in range(4)]
 
         a = 0.1  # space between ends of arrow and stations
         b = 0.03  # arrow offset
         c = 0.05  # price offset
 
-        for src in range(3):
-            for dst in range(3):
+        for src in range(4):
+            for dst in range(4):
                 if src == dst:
                     continue
                 ssrc = stations[src]
@@ -236,21 +275,43 @@ class Price(object):
                 dx = sdst.x - ssrc.x
                 line = Line(psrc, pdst)
                 line.move(-dy * b, dx * b)
-                line.setArrow("last")
+                if (src == 2 and dst == 3) or (src == 3 and dst == 0) or (src == 3 and dst == 2) or (
+                        src == 0 and dst == 3):
+                    line.setArrow("first")
+                else:
+                    line.setArrow("last")
+
+                if (src == 0 and dst == 3) or (src == 3 and dst == 0):
+                    line.setFill('blue')
+
+                if (src == 1 and dst == 2) or (src == 2 and dst == 1):
+                    line.setOutline('orange')
+
                 line.draw(win)
+
                 self.lines[src][dst] = line
 
                 lc = line.getCenter()
                 p = Text(Point(lc.x - dy * c, lc.y + dx * c), "$")
+                if (src == 0 and dst == 3) or (src == 3 and dst == 0):
+                    p.setTextColor('blue')
+
+                if (src == 1 and dst == 2) or (src == 2 and dst == 1):
+                    p.setOutline('orange')
                 p.draw(win)
+
                 self.price[src][dst] = p
 
     def drawprice(self, price, _):
-        for src in range(3):
-            for dst in range(3):
+        for src in range(4):
+            for dst in range(4):
                 if src == dst:
                     continue
-                p: Text = self.price[src][dst]
+                if (src == 2 and dst == 3) or (src == 3 and dst == 0) or (src == 3 and dst == 2) or (
+                        src == 0 and dst == 3):
+                    p: Text = self.price[dst][src]
+                else:
+                    p: Text = self.price[src][dst]
                 p.setSize(18)
                 p.setText("$" + str(round(price[src][dst], 2)))
 
@@ -262,12 +323,40 @@ class Rewards(object):
         profit_title = Text(Point(300, 50), "Profit:")
         profit_title.setSize(18)
         profit_title.draw(win)
-        tital_profit_title = Text(Point(300, 80), "Total Profit:")
-        tital_profit_title.setSize(18)
-        tital_profit_title.draw(win)
+        total_profit_title = Text(Point(300, 80), "Total Profit:")
+        total_profit_title.setSize(18)
+        total_profit_title.draw(win)
         self.step_title = Text(Point(100, 50), "Step: ")
         self.step_title.setSize(18)
         self.step_title.draw(win)
+        gain = Text(Point(600, 50), "Gain: ")
+        gain.setSize(18)
+        gain.setTextColor("green")
+        gain.draw(win)
+        wait_pen = Text(Point(600, 80), "Waiting Penalty: ")
+        wait_pen.setSize(18)
+        wait_pen.setTextColor("red")
+        wait_pen.draw(win)
+        opcost = Text(Point(600, 110), "Operating Cost:")
+        opcost.setSize(18)
+        opcost.setTextColor("red")
+        opcost.draw(win)
+        overflow = Text(Point(600, 140), "Overflow Penalty:")
+        overflow.setTextColor("red")
+        overflow.setSize(18)
+        overflow.draw(win)
+        self.gain = Text(Point(820, 50), 0)
+        self.gain.setSize(18)
+        self.gain.setTextColor("green")
+        self.wait_pen = Text(Point(820, 80), 0)
+        self.wait_pen.setSize(18)
+        self.wait_pen.setTextColor("red")
+        self.op_cost = Text(Point(820, 110), 0)
+        self.op_cost.setSize(18)
+        self.op_cost.setTextColor("red")
+        self.overflow = Text(Point(820, 140), 0)
+        self.overflow.setSize(18)
+        self.overflow.setTextColor("red")
         self.profit_text = Text(Point(400, 50), round(self.profit, 2))
         self.profit_text.setSize(18)
         self.total_profit_text = Text(Point(400, 80), round(self.total_profit, 2))
@@ -281,51 +370,102 @@ class Rewards(object):
             self.total_profit = self.total_profit + reward
             self.profit_text.setText(round(self.profit, 2))
             self.total_profit_text.setText(round(self.total_profit, 2))
+            self.gain.setText(round(info['reward'], 2))
+            self.wait_pen.setText(round(info['wait_penalty'], 2))
+            self.op_cost.setText(round(info['operating_cost'], 2))
+            self.overflow.setText(round(info['overflow'], 2))
+            self.gain.draw(win)
+            self.wait_pen.draw(win)
+            self.op_cost.draw(win)
+            self.overflow.draw(win)
             self.profit_text.draw(win)
             self.total_profit_text.draw(win)
             self.step_text.draw(win)
-            print(info['operating_cost'])
+
 
         else:
             self.profit = reward
             self.total_profit = self.total_profit + reward
             self.profit_text.setText(round(self.profit, 2))
             self.total_profit_text.setText(round(self.total_profit, 2))
+            self.gain.setText(round(info['reward'], 2))
+            self.wait_pen.setText(round(info['wait_penalty'], 2))
+            self.op_cost.setText(round(info['operating_cost'], 2))
+            self.overflow.setText(round(info['overflow'], 2))
             self.step_text.setText(step)
 
 
 def moving():
-    _action, _state = container.model.predict(container.state)
-    action = VehicleAction(container.env, _action)
-    container.state, reward, _, info = container.env.step(_action)
-    for i in range(3):
+    # _action, _state = container.model.predict(container.state)
+    # action = VehicleAction(container.env, _action)
+    # container.state, reward, _, info = container.env.step(_action)
+
+    reward = 1.0
+    info = {'reward': 1.0, 'operating_cost': 0.1, 'wait_penalty': 0.0, 'overflow': 0}
+    motion = [[0, 0, 0, 0],
+              [0, 0, 0, 0],
+              [2, 0, 1, 0],
+              [0, 0, 0, 0]]
+    price = [[0, 1, 0, 0],
+             [0, 0, 0, 0],
+             [0, 0, 0, 0],
+             [0, 0, 0, 0]]
+
+    for i in range(4):
         stations[i].next_vehicle_index = len(stations[i].vehicles)
         stations[i].queue_leave = [0, 0, 0]
-        for j in range(3):
-            if i == j or action.motion[i][j] == 0:
+        for j in range(4):
+            if i == j or motion[i][j] == 0:
                 continue
-            stations[i].remove_vehicle(j, action.motion[i][j])
+            stations[i].remove_vehicle(j, motion[i][j])
 
-    for i in range(3):
-        for j in range(3):
-            if i == j or action.motion[i][j] == 0:
+    for i in range(4):
+        for j in range(4):
+            if i == j or motion[i][j] == 0:
                 continue
-            stations[i].move_vehicle(j, action.motion[i][j])
-    return action.price, action.motion, reward, info
+            stations[i].move_vehicle(j, motion[i][j])
+    return price, motion, reward, info
 
 
 if __name__ == "__main__":
     container = Container()
     start = 0
     step = 0
-    win = GraphWin("My demo", 1000, 900)
+    win = GraphWin("My demo", 700, 700)
 
-    stations = [Station(i, 3) for i in range(3)]
-    cars = [Cars() for i in range(3)]
+    stations = [Station(i, 4) for i in range(4)]
+    # smallnode = list(list())
+    #
+    # smallnode.append([small_node(stations[0], stations[3], i, 4) for i in range(3)])
+    # smallnode.append([small_node(stations[0], stations[1], i, 3) for i in range(2)])
+    # smallnode.append([small_node(stations[1], stations[0], i, 3) for i in range(2)])
+    # smallnode.append([small_node(stations[1], stations[2], i, 2) for i in range(1)])
+    # smallnode.append([small_node(stations[2], stations[1], i, 2) for i in range(1)])
+    # smallnode.append([small_node(stations[2], stations[3], i, 4) for i in range(3)])
+    # smallnode.append([small_node(stations[3], stations[2], i, 4) for i in range(3)])
+    # smallnode.append([small_node(stations[3], stations[0], i, 4) for i in range(3)])
+
+    # print(smallnode)
+    # map = [[0, 3, 0, 4],
+    #        [3, 0, 2, 0],
+    #        [0, 2, 0, 4],
+    #        [4, 0, 4, 0]]
+
+    # for i in range(4):
+    #     if (i - 1) < 0:
+    #         stations[i].set_smallnode(smallnode[2*i], map[i][3])
+    #     else:
+    #         stations[i].set_smallnode(smallnode[2*i], map[i][i - 1])
+    #     if i + 1 > 3:
+    #         stations[i].set_smallnode(smallnode[2*i+1], map[i][0])
+    #     else:
+    #         stations[i].set_smallnode(smallnode[2*i+1], map[i][i + 1])
+
+    cars = [Cars() for i in range(4)]
     prices = Price()
     Reward = Rewards()
     ind = 0
-    for i in range(3):
+    for i in range(4):
         n = container.state[i]
         for j in range(n):
             cars[ind].init_pos(i)
@@ -338,6 +478,7 @@ if __name__ == "__main__":
             break
 
         price, motion, reward, info = moving()
+
         Reward.drawreward(reward, start, step, info)
         prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
