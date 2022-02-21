@@ -32,7 +32,7 @@ class Container(object):
 
     def get_queue(self, state):
         ans = [[0 for _ in range(4)] for _ in range(4)]
-        index = 3
+        index = 4
         for i in range(4):
             for j in range(4):
                 if i == j:
