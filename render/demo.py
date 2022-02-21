@@ -1,10 +1,13 @@
 import math
+import math
 from typing import List
 from graphics import *
-
 import gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.utils import set_random_seed
+
+import sys
+sys.path.append('../gym_vehicle')
 
 from gym_vehicle.envs.vehicle_env import VehicleAction
 
@@ -23,15 +26,15 @@ class Container(object):
 
     def __init__(self):
         self.env = make_env("vehicle-v0", 12345)()
-        self.model = PPO.load(f"../training/data_n3_v3_set1/9mil")
+        self.model = PPO.load(f"../data_n4_v4/100mil")
         self.model.set_env(self.env)
         self.state = self.env.reset()
 
     def get_queue(self, state):
-        ans = [[0 for _ in range(3)] for _ in range(3)]
+        ans = [[0 for _ in range(4)] for _ in range(4)]
         index = 3
-        for i in range(3):
-            for j in range(3):
+        for i in range(4):
+            for j in range(4):
                 if i == j:
                     continue
                 ans[i][j] = state[index]
@@ -78,8 +81,8 @@ class Customer(RenderObject):
         self.current_y = ny
 
     def set_enter(self, index):
-        self.old_x = self.x - (stations[index].x - 500)
-        self.old_y = self.y - (stations[index].y - 500)
+        self.old_x = self.x - (stations[index].x - 100)
+        self.old_y = self.y - (stations[index].y - 100)
         self.sprite.move(self.old_x - self.current_x, self.old_y - self.current_y)
         self.current_x = self.old_x
         self.current_y = self.old_y
@@ -125,22 +128,25 @@ class Station(RenderObject):
         # 100 100, 900 100, 100 900, 900 900
         x1index = [-1, 1, -1, 1]
         y1index = [-1, -1, 1, 1]
-        self.x = 350 + 200 * x1index[index]
-        self.y = 350 + 200 * y1index[index]
+        self.x = 500 + 300 * x1index[index]
+        self.y = 500 + 300 * y1index[index]
         self.vehicles: List[Cars] = []
         self.sprite = Circle(Point(self.x, self.y), 15)
         self.sprite.draw(win)
 
-        self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(8)] for i in range(3)]
+        self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(15)] for i in range(4)]
 
         # self.smallstations: list(List[small_node])=[]
         self.dis = list()
 
-        self.old_queue = [0, 0, 0]
-        self.target_queue = [0, 0, 0]
+        self.needmove = 0
+        self.targetmem = list()
+
+        self.old_queue = [0, 0, 0, 0]
+        self.target_queue = [0, 0, 0, 0]
         self.nowindex = index
         self.next_vehicle_index = 0
-        self.queue_leave = [0, 0, 0]
+        self.queue_leave = [0, 0, 0, 0]
         num = Text(Point(self.x, self.y), f"{index + 1}")
         num.setSize(18)
         num.draw(win)
@@ -151,7 +157,7 @@ class Station(RenderObject):
                 q.update()
         if start == 1:
             old_sprite_ind = 0
-            for dst in range(3):
+            for dst in range(4):
                 if self.nowindex == dst:
                     continue
                 for q in range(self.old_queue[dst]):
@@ -159,7 +165,7 @@ class Station(RenderObject):
                     old_sprite_ind = old_sprite_ind + 1
         sprite_ind = 0
         advance = 0
-        for dst in range(3):
+        for dst in range(4):
             if self.nowindex == dst:
                 continue
             to_leave = self.queue_leave[dst]
@@ -180,10 +186,12 @@ class Station(RenderObject):
 
     def remove_vehicle(self, dst, n):
         self.next_vehicle_index -= n
-        # self.queue_leave[dst] = min(self.old_queue[dst], n)
+        self.queue_leave[dst] = min(self.old_queue[dst], n)
+        print(self.queue_leave[3])
 
-    def move_vehicle(self, target, n):
+    def move_vehicle(self, target, n, mid_node):
         for _ in range(n):
+            self.vehicles[0].set_index(target, mid_node)
             # index1 = 1 if (target - self.nowindex) == 1 else 0
             # print(index1)
             # print(target)
@@ -191,7 +199,7 @@ class Station(RenderObject):
             # totallen = len(self.smallstations[index1])
             # if distance != 0:
             #     self.smallstations[index1][totallen-distance].next_vehicle_index = 0
-            self.vehicles[0].set_index(target)
+
 
     # def set_smallnode(self, smallstation, dist):
     #     self.smallstations.append(smallstation)
@@ -211,6 +219,7 @@ class Cars(RenderObject):
         self.sprite = Image(Point(0, 0), "./car.gif")
         self.sprite.draw(win)
 
+
     def init_pos(self, i):
         self.index = i
         self.x = stations[self.index].x
@@ -222,7 +231,7 @@ class Cars(RenderObject):
         self.current_x = self.x
         self.current_y = self.y
 
-    def set_index(self, i):
+    def set_index(self, i, mid_node):
         old_station = self.index
         self.index = i
 
@@ -231,7 +240,18 @@ class Cars(RenderObject):
         #     currentdist = stations[old_station].dis[index]
         #     s1 = stations[old_station].smallstations[index][currentdist - dist - 1]
         # else:
-        s1 = stations[self.index]
+        if mid_node == 1:
+            if (old_station == 0 and i == 3) or (old_station == 3 and i == 0):
+                s1 = stations[1]
+                s1.needmove += 1
+                s1.targetmem.append(i)
+            else:
+                s1 = stations[0]
+                s1.needmove += 1
+                s1.targetmem.append(i)
+        else:
+            s1 = stations[self.index]
+
         self.target_x = s1.x
 
         # if index == 0:
@@ -240,6 +260,7 @@ class Cars(RenderObject):
         #     self.target_y = s1.y - 30 - s1.next_vehicle_index * 20
         s1.next_vehicle_index += 1
         s0.vehicles.remove(self)
+        s0.needmove -= 1
         s1.vehicles.append(self)
 
     def render(self, time):
@@ -395,43 +416,41 @@ class Rewards(object):
             self.step_text.setText(step)
 
 
-def moving():
-    # _action, _state = container.model.predict(container.state)
-    # action = VehicleAction(container.env, _action)
-    # container.state, reward, _, info = container.env.step(_action)
-
-    reward = 1.0
-    info = {'reward': 1.0, 'operating_cost': 0.1, 'wait_penalty': 0.0, 'overflow': 0}
-    motion = [[0, 0, 0, 0],
-              [0, 0, 0, 0],
-              [2, 0, 1, 0],
-              [0, 0, 0, 0]]
-    price = [[0, 1, 0, 0],
-             [0, 0, 0, 0],
-             [0, 0, 0, 0],
-             [0, 0, 0, 0]]
-
+def moving(stations):
+    _action, _state = container.model.predict(container.state)
+    action = VehicleAction(container.env, _action)
+    container.state, reward, _, info = container.env.step(_action)
+    print('state:',container.state)
     for i in range(4):
         stations[i].next_vehicle_index = len(stations[i].vehicles)
-        stations[i].queue_leave = [0, 0, 0]
+        stations[i].queue_leave = [0, 0, 0, 0]
         for j in range(4):
-            if i == j or motion[i][j] == 0:
+            if i == j or action.motion[i][j] == 0:
                 continue
-            stations[i].remove_vehicle(j, motion[i][j])
+            stations[i].remove_vehicle(j, action.motion[i][j])
+            for z in range(stations[i].needmove, 0, -1):
+                stations[i].remove_vehicle(stations[i].targetmem[z-1], 1, 0)
+
 
     for i in range(4):
         for j in range(4):
-            if i == j or motion[i][j] == 0:
+            mid_node = 0
+            if (i == 0 and j == 3) or (i == 3 and j == 0) or (i == 2 and j == 1) or (i == 1 and j == 2):
+                mid_node = 1
+            if i == j or action.motion[i][j] == 0:
                 continue
-            stations[i].move_vehicle(j, motion[i][j])
-    return price, motion, reward, info
+            stations[i].move_vehicle(j, action.motion[i][j], mid_node)
+            for z in range(stations[i].needmove, 0, -1):
+                stations[i].move_vehicle(stations[i].targetmem[z-1], 1, 0)
+                stations[i].targetmem.pop()
+    return action.price, action.motion, reward, info
 
 
 if __name__ == "__main__":
     container = Container()
     start = 0
     step = 0
-    win = GraphWin("My demo", 700, 700)
+    win = GraphWin("My demo", 1000, 1000)
 
     stations = [Station(i, 4) for i in range(4)]
     # smallnode = list(list())
@@ -477,13 +496,14 @@ if __name__ == "__main__":
         except Exception as inst:
             break
 
-        price, motion, reward, info = moving()
+        price, motion, reward, info = moving(stations)
+        print('motion:',motion)
 
         Reward.drawreward(reward, start, step, info)
         prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
-
-        for x in range(3):
+        print('queue:', allqueue)
+        for x in range(4):
             stations[x].target_queue = allqueue[x]
             stations[x].draw_queue(start)
 
