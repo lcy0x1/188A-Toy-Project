@@ -187,7 +187,7 @@ class Station(RenderObject):
     def remove_vehicle(self, dst, n):
         self.next_vehicle_index -= n
         self.queue_leave[dst] = min(self.old_queue[dst], n)
-        print(self.queue_leave[3])
+
 
     def move_vehicle(self, target, n, mid_node):
         for _ in range(n):
