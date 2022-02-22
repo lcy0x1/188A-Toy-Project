@@ -1,0 +1,13 @@
+{
+  "node": 2,
+  "vehicle": 1,
+  "queue_size": 4,
+  "poisson_param": 1,
+  "operating_cost": 0.1,
+  "waiting_penalty": 0.2,
+  "overflow": 100,
+  "poisson_cap": 5,
+  "edge_lengths": [1,2],
+  "poisson_param_cap": 5,
+  "time_unit": 24
+}
