@@ -124,7 +124,7 @@ class VehicleEnv(gym.Env):
                 wait_pen += self.queue[i][j] * self.waiting_penalty
                 price = action.price[i][j]
                 #self.poisson_param = math.floor(self.poisson_param_cap *(0.5676 + (-0.2124)*math.cos(w*t) + (-0.4349)*math.sin(w*t) + (0.0187)*math.cos(2*w*t) + (-0.0543)*math.sin(2*w*t)))
-                demand_calculator()
+                self.demand_calculator()
                 request = min(self.poisson_cap, self.random.poisson(self.poisson_param * (1 - price)))
                 act_req = min(request, self.queue_size - self.queue[i][j])
                 overf += (request - act_req) * self.overflow

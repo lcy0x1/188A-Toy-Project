@@ -47,7 +47,7 @@ def make_vi():
                                   overflow_penalty,
                                   converge_discount)
 
-    solv.read_json('./data_n2_v2/test.json')
+    solv.read_json('./data_n3_v3_vd_set1/config.json')
 
     return solv
 
@@ -77,7 +77,7 @@ def convert(solv, obs):
 
 
 def compare():
-    model = PPO.load("./data_n2_v2/3mil")
+    model = PPO.load("./data_n3_v3_vd_set1/1mil")
     model.set_env(env)
 
     list_sums = []
@@ -123,7 +123,7 @@ def plot(n):
     ret_list = []
     q_list = []
     for i in range(9):
-        model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
+        model = PPO.load(f"./data_n3_v3_vd_set{n}/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
@@ -157,4 +157,4 @@ if __name__ == "__main__":
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(2)
+    plot(1)
