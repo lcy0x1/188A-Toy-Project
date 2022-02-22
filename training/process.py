@@ -125,7 +125,7 @@ def plot(n):
     ret_list = []
     q_list = []
     for i in range(5):
-        model = PPO.load(f"./data_n3_v3_edge{n}/{i + 1}mil")
+        model = PPO.load(f"./traveling_time_data/data_n3_v3_edge{n}/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
