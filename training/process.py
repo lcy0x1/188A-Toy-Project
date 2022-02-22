@@ -124,7 +124,7 @@ def compare():
 def plot(n):
     ret_list = []
     q_list = []
-    for i in range(5):
+    for i in range(20):
         model = PPO.load(f"./traveling_time_data/data_n3_v3_edge{n}/{i + 1}mil")
         model.set_env(env)
 
@@ -155,7 +155,7 @@ def plot(n):
 
 if __name__ == "__main__":
     env_id = "vehicle-v0"
-    num_cpu = 1  # Number of processes to use
+    num_cpu = 8  # Number of processes to use
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
