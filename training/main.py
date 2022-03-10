@@ -41,9 +41,9 @@ if __name__ == "__main__":
 
     sum_list = []
 
-    for i in range(100):
+    for i in range(6):
         model.learn(total_timesteps=1_000_000)
-        model.save(f"./data_n4_v4/{i + 1}mil")
+        model.save(f"./demo_n2_v1/{i + 1}mil")
         sums = 0
         obs = env.reset()
         for _ in range(1000):
