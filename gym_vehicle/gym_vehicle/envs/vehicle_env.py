@@ -31,7 +31,6 @@ import sys
 # NEED TO REDEFINE VEHICLE MOTION TO FIX DIMENSION ERRORS (self.motion)
 #       -> Must modify env.node in __init__ to include extra states
 
-
 class VehicleAction:
 
     def __init__(self, env, arr):
@@ -183,7 +182,7 @@ class VehicleEnv(gym.Env):
                 act_req = min(request, self.queue_size - self.queue[i][j])
                 overf += (request - act_req) * self.overflow
                 self.queue[i][j] = self.queue[i][j] + act_req
-                rew += act_req * action.price[i][j]
+                rew += act_req * action.price[i][j] * self.edge_matrix[i][j]
         debuf_info = {'reward': rew, 'operating_cost': op_cost, 'wait_penalty': wait_pen, 'overflow': overf}
         return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
 
