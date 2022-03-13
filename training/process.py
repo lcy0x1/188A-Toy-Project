@@ -124,7 +124,7 @@ def compare():
 def plot(n):
     ret_list = []
     q_list = []
-    for i in range(50):
+    for i in range(50, 101):
         model = PPO.load(f"./traveling_time_data/demo_n4_v4_revised/{i + 1}mil")
         model.set_env(env)
 
