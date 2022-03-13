@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 .idea/misc.xml
 .idea/188A-Toy-Project.iml
+
+.DS_Store

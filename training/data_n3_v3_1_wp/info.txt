@@ -1,8 +1,0 @@
-3 node
-3 vehicles
-maximum queue size 8
-maximum poisson value 3
-operating cost 0.1
-waiting penalty 1
-overflow penalty 100
-poisson_param 1
