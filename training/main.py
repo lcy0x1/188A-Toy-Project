@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     for i in range(100):
         model.learn(total_timesteps=1_000_000)
-        model.save(f"./demo_n4_v4_set1/{i + 1}mil")
+        model.save(f"./demo_n4_v4_revised/{i + 1}mil")
         sums = 0
         obs = env.reset()
         for _ in range(1000):
