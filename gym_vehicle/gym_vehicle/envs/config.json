@@ -1,7 +1,7 @@
 {
   "node": 4,
-  "vehicle": 4,
-  "queue_size": 18,
+  "vehicle": 8,
+  "queue_size": 100,
   "poisson_param": 1,
   "operating_cost": 0.1,
   "waiting_penalty": 0.2,
