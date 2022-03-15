@@ -433,13 +433,15 @@ class Price(object):
             for dst in range(4):
                 if src == dst:
                     continue
-                if (src == 2 and dst == 3) or (src == 3 and dst == 0) or (src == 3 and dst == 2) or (
-                        src == 0 and dst == 3):
+                if (src == 0 and dst == 3) or (src == 3 and dst == 0) or (src == 1 and dst == 2) or (
+                        src == 2 and dst == 1):
                     p: Text = self.price[dst][src]
+                    p.setSize(18)
+                    p.setText("$" + str(round(price[src][dst] * 2, 2)))
                 else:
                     p: Text = self.price[src][dst]
-                p.setSize(18)
-                p.setText("$" + str(round(price[src][dst], 2)))
+                    p.setSize(18)
+                    p.setText("$" + str(round(price[src][dst], 2)))
 
 
 class Rewards(object):
