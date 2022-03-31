@@ -9,6 +9,7 @@ import sys
 
 class VehicleAction:
 
+    # Define and allow charging action here
     def __init__(self, env, arr):
         self.motion = [[0 for _ in range(env.node)] for _ in range(env.node)]
         self.price = [[0.0 for _ in range(env.node)] for _ in range(env.node)]
@@ -62,12 +63,11 @@ class VehicleEnv(gym.Env):
         self.poisson_cap = self.config["poisson_cap"]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
+        # Charging variables
         self.charge = self.config["charging_price"]
         self.battery = self.config["total_charge"]
+        # TO DO: Add variable that tracks specific vehicle charge
 
-        # Attempt at edge initialization
-        # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
-        # n nodes: self.edge(0) = 1->2 , 1->3 , ... 1->n , 2->1 , 2->3, ... 2->n , ... n->n-2 , n->n-1  (? edges)
         self.edge_list = self.config["edge_lengths"]
         self.edge_matrix = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.bounds = [0 for _ in range(self.node)]
@@ -78,7 +78,11 @@ class VehicleEnv(gym.Env):
 
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(sum(self.bounds))] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))] +
+            # Added obs space for vehicle battery states
+            [self.vehicle * (self.battery - 1) * (self.node + sum(self.edge_matrix) - length(self.edge_matrix))])
+
+        # NEED TO INCREASE THIS!!! HOW TO HANDLE CHARGING ACTION???
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
         # Stores number of vehicles at mini node between i and j
@@ -116,6 +120,8 @@ class VehicleEnv(gym.Env):
         overf = 0
         rew = 0
         # Move cars in mini-nodes ahead
+
+        # TO DO: Adjust battery levels every time step a vehicle moves
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
@@ -134,6 +140,7 @@ class VehicleEnv(gym.Env):
 
         # Change self.mini_vehicles s.t. [i][j] = nodes, [m] = distance left, value of matrix = # of cars
 
+        # TO DO: Adjust battery level of each vehicle as its moves 1 time step
         for i in range(self.node):
             for j in range(self.node):
                 if i == j:
@@ -164,6 +171,7 @@ class VehicleEnv(gym.Env):
         debuf_info = {'reward': rew, 'operating_cost': op_cost, 'wait_penalty': wait_pen, 'overflow': overf}
         return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
 
+    # TO DO: Reset vehicle batteries to full
     def reset(self):
         # Reset queue, vehicles at nodes AND in travel
         for i in range(self.node):
@@ -186,6 +194,7 @@ class VehicleEnv(gym.Env):
     def close(self):
         pass
 
+    # TO DO: Add obs space here
     def to_observation(self):
         arr = [0 for _ in range((self.node * self.node + sum(self.bounds) - self.node))]
         ind = 0
