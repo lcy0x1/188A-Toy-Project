@@ -67,10 +67,6 @@ class VehicleEnv(gym.Env):
         self.charge = self.config["charging_price"]
         self.battery = self.config["total_charge"]
 
-
-        # Attempt at edge initialization
-        # Edge matrix: self.edge(0) = 1->2 , self.edge(1) = 2->1     for 2 node case (2 edges)
-        # n nodes: self.edge(0) = 1->2 , 1->3 , ... 1->n , 2->1 , 2->3, ... 2->n , ... n->n-2 , n->n-1  (? edges)
         edge_matrix = self.config["edge_lengths"]
         edge_num = len(edge_matrix)
         if (self.node * (self.node-1)) != edge_num:
@@ -86,7 +82,7 @@ class VehicleEnv(gym.Env):
                 else:
                     self.edge[i][j] = edge_matrix[tmp]
                     if edge_matrix[tmp] > 1:
-                        extra_obs_space += 1
+                        extra_obs_space += self.edge[i][j] - 1
                     tmp = tmp + 1
         # Initializing "travel" matrix; each position indicates a vehicle is traveling from i to j
         # for self.travel[i][j] more time steps
@@ -94,10 +90,10 @@ class VehicleEnv(gym.Env):
 
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(self.node)] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))])
-        # Either traveling or not -> For each node length > 1, add an additional space
-        # Ignore for now? Errors with Stable_baselines
-            # + [extra_obs_space])
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))] +
+            [(self.battery - 1) * (self.node + extra_obs_space)])
+
+        # NEEDS TO BE MODIFIED; FIGURE OUT HOW TO DEAL WITH CHARGING
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
 
     def seed(self, seed=None):
