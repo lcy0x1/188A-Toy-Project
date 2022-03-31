@@ -64,6 +64,8 @@ class VehicleEnv(gym.Env):
         self.vehicles = [0 for _ in range(self.node)]
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
+        self.charge = self.config["charging_price"]
+        self.battery = self.config["total_charge"]
 
 
         # Attempt at edge initialization
@@ -137,7 +139,6 @@ class VehicleEnv(gym.Env):
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
-        # Reset all edge lengths to 1
 
         return self.to_observation()
 
