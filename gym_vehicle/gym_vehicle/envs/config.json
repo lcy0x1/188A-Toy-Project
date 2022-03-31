@@ -5,7 +5,7 @@
   "poisson_param": 1,
   "operating_cost": 0.1,
   "waiting_penalty": 0.2,
-  "overflow": 100,
+  "overflow": 30,
   "poisson_cap": 3,
   "edge_lengths": [1,2],
   "charging_price": [0.8,1.2],

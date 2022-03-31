@@ -7,8 +7,10 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
-import gym_vehicle
 import value_iteration
+import sys
+sys.path.insert(0, 'C:/Users/Soulget/Desktop/Temp HW files/ECE 188A/GITHUB/188A-Toy-Project/gym_vehicle')
+import gym_vehicle
 
 
 def make_env(env_id, rank, seed=0):
@@ -122,8 +124,8 @@ def compare():
 def plot(n):
     ret_list = []
     q_list = []
-    for i in range(9):
-        model = PPO.load(f"./data_n3_v3_set{n}/{i + 1}mil")
+    for i in range(50):
+        model = PPO.load(f"./traveling_time_data/demo_n4_v4_revised/{i + 1}mil")
         model.set_env(env)
 
         list_sums = []
@@ -153,8 +155,8 @@ def plot(n):
 
 if __name__ == "__main__":
     env_id = "vehicle-v0"
-    num_cpu = 1  # Number of processes to use
+    num_cpu = 8  # Number of processes to use
     # Create the vectorized environment
     env = make_env(env_id, 12345)()
     # compare()
-    plot(2)
+    plot(1)
