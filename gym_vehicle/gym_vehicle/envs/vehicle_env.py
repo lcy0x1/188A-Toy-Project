@@ -64,9 +64,12 @@ class VehicleEnv(gym.Env):
         self.queue = [[0 for _ in range(self.node)] for _ in range(self.node)]
         self.random = None
         # Charging variables
-        self.charge = self.config["charging_price"]
-        self.battery = self.config["total_charge"]
-        # TO DO: Add variable that tracks specific vehicle charge
+        self.charge_price = self.config["charging_price"]
+        self.max_charge = self.config["total_charge"]
+        # self.battery matrix represents charge of vehicles at a node. If the value is greater than the max_charge, this
+        # indicates that there is no car present
+        # self.battery has dimensions self.node by self.vehicle
+        self.battery = [[(self.max_charge + 1) for _ in range(self.vehicle)] for _ in range(self.node)]
 
         self.edge_list = self.config["edge_lengths"]
         self.edge_matrix = [[0 for _ in range(self.node)] for _ in range(self.node)]
@@ -80,10 +83,11 @@ class VehicleEnv(gym.Env):
             [self.vehicle + 1 for _ in range(sum(self.bounds))] +
             [self.queue_size + 1 for _ in range(self.node * (self.node - 1))] +
             # Added obs space for vehicle battery states
-            [self.vehicle * (self.battery - 1) * (self.node + sum(self.edge_matrix) - length(self.edge_matrix))])
+            [1 for _ in range(self.vehicle * (self.max_charge - 1) * (self.node + sum(self.edge_list)
+             - len(self.edge_list)))])
 
-        # NEED TO INCREASE THIS!!! HOW TO HANDLE CHARGING ACTION???
-        self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1),))
+        # Added self.node to allow for charging action
+        self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1) + self.node,))
 
         # Stores number of vehicles at mini node between i and j
         self.mini_vehicles = [[[0 for _ in range(self.edge_matrix[i][j] - 1)]
@@ -184,7 +188,7 @@ class VehicleEnv(gym.Env):
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
-        # Reset all edge lengths to 1
+            # TO DO: Reset self.battery matrix here
 
         return self.to_observation()
 

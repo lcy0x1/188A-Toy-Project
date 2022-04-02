@@ -9,5 +9,5 @@
   "poisson_cap": 3,
   "edge_lengths": [1,2],
   "charging_price": [0.8,1.2],
-  "total_charge": 10
+  "total_charge": 4
 }
