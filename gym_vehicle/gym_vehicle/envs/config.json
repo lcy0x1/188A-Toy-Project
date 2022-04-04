@@ -7,7 +7,7 @@
   "waiting_penalty": 0.2,
   "overflow": 30,
   "poisson_cap": 3,
-  "edge_lengths": [1,2],
-  "charging_price": [0.8,1.2],
-  "total_charge": 4
+  "edge_lengths": [1,2,3,2,2,1],
+  "charging_price": [0.8,1.2,1],
+  "total_charge": 3
 }

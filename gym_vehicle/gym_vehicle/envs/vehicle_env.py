@@ -81,10 +81,9 @@ class VehicleEnv(gym.Env):
 
         self.observation_space = spaces.MultiDiscrete(
             [self.vehicle + 1 for _ in range(sum(self.bounds))] +
-            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))] +
+            [self.queue_size + 1 for _ in range(self.node * (self.node - 1))]
             # Added obs space for vehicle battery states
-            [1 for _ in range(self.vehicle * (self.max_charge - 1) * (self.node + sum(self.edge_list)
-             - len(self.edge_list)))])
+            + [self.max_charge + 1 for _ in range(self.max_charge + 1)])
 
         # Added self.node to allow for charging action
         self.action_space = spaces.Box(0, 1, (self.node * self.node + self.node * (self.node - 1) + self.node,))
@@ -117,14 +116,15 @@ class VehicleEnv(gym.Env):
     def seed(self, seed=None):
         self.random, _ = seeding.np_random(seed)
 
+    # ANDY
     def step(self, act):
         action = VehicleAction(self, act)
         op_cost = 0
         wait_pen = 0
         overf = 0
         rew = 0
-        # Move cars in mini-nodes ahead
 
+        # Move cars in mini-nodes ahead
         # TO DO: Adjust battery levels every time step a vehicle moves
         for i in range(self.node):
             for j in range(self.node):
@@ -175,7 +175,7 @@ class VehicleEnv(gym.Env):
         debuf_info = {'reward': rew, 'operating_cost': op_cost, 'wait_penalty': wait_pen, 'overflow': overf}
         return self.to_observation(), rew - op_cost - wait_pen - overf, False, debuf_info
 
-    # TO DO: Reset vehicle batteries to full
+    # TO DO: Reset vehicle batteries to full   (finished?)
     def reset(self):
         # Reset queue, vehicles at nodes AND in travel
         for i in range(self.node):
@@ -188,7 +188,8 @@ class VehicleEnv(gym.Env):
         for i in range(self.vehicle):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
-            # TO DO: Reset self.battery matrix here
+            # Use same matrix as initialization to reset battery state to full?
+            self.battery = [[(self.max_charge + 1) for _ in range(self.vehicle)] for _ in range(self.node)]
 
         return self.to_observation()
 
@@ -198,9 +199,9 @@ class VehicleEnv(gym.Env):
     def close(self):
         pass
 
-    # TO DO: Add obs space here
+    # Added battery states to function
     def to_observation(self):
-        arr = [0 for _ in range((self.node * self.node + sum(self.bounds) - self.node))]
+        arr = [0 for _ in range(self.node * (self.node - 1) + sum(self.bounds) + self.max_charge + 1)]
         ind = 0
         for i in range(self.node):
             arr[ind] = self.vehicles[i]
