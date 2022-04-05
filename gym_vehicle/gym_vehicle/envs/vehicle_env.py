@@ -69,7 +69,7 @@ class VehicleEnv(gym.Env):
         # self.battery matrix represents charge of vehicles at a node. If the value is greater than the max_charge, this
         # indicates that there is no car present
         # self.battery has dimensions self.node by self.vehicle
-        self.battery = [[(self.max_charge + 1) for _ in range(self.vehicle)] for _ in range(self.node)]
+        self.battery = [[-1 for _ in range(self.vehicle)] for _ in range(self.node)]
 
         self.edge_list = self.config["edge_lengths"]
         self.edge_matrix = [[0 for _ in range(self.node)] for _ in range(self.node)]
@@ -189,7 +189,7 @@ class VehicleEnv(gym.Env):
             pos = self.random.randint(0, self.node)
             self.vehicles[pos] = self.vehicles[pos] + 1
             # Use same matrix as initialization to reset battery state to full?
-            self.battery = [[(self.max_charge + 1) for _ in range(self.vehicle)] for _ in range(self.node)]
+            self.battery = [[-1 for _ in range(self.vehicle)] for _ in range(self.node)]
 
         return self.to_observation()
 
