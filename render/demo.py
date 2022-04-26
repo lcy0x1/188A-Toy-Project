@@ -126,12 +126,22 @@ class Station(RenderObject):
         # 100 100, 900 900 , 100 900, 900 100
         # 100 100, 100 900, 900 100, 900 900
         # 100 100, 900 100, 100 900, 900 900
-        x1index = [-1, 1, -1, 1]
-        y1index = [-1, -1, 1, 1]
-        self.x = 500 + 300 * x1index[index]
-        self.y = 500 + 300 * y1index[index]
+
+        #200 800 200 800
+        #200 200 800 800
+        x1index = [-0.10, 1, -1, 0.10]
+        y1index = [-1, -0.25, 0.25, 1]
+        x2index = [-0.75, 1.05, -1.05, 0.75]
+        y2index = [-0.3, -1, 1, 0.30]
+        self.x = 500 + 400 * x1index[index]
+        self.y = 500 + 250 * y1index[index]
+        self.x2 = 500 + 300 * x2index[index]
+        self.y2 = 500 + 300 * y2index[index]
         self.vehicles: List[Cars] = []
         self.sprite = Circle(Point(self.x, self.y), 15)
+        self.sprite.draw(win)
+
+        self.sprite = Circle(Point(self.x2, self.y2), 15)
         self.sprite.draw(win)
 
         self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(15)] for i in range(4)]
@@ -148,6 +158,10 @@ class Station(RenderObject):
         self.next_vehicle_index = 0
         self.queue_leave = [0, 0, 0, 0]
         num = Text(Point(self.x, self.y), f"{index + 1}")
+        num.setSize(18)
+        num.draw(win)
+
+        num = Text(Point(self.x2, self.y2), f"{index + 1}")
         num.setSize(18)
         num.draw(win)
 
