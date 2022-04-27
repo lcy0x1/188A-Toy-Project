@@ -129,19 +129,18 @@ class Station(RenderObject):
 
         #200 800 200 800
         #200 200 800 800
-        x1index = [-0.10, 1, -1, 0.10]
-        y1index = [-1, -0.25, 0.25, 1]
-        x2index = [-0.75, 1.05, -1.05, 0.75]
-        y2index = [-0.3, -1, 1, 0.30]
-        self.x = 500 + 400 * x1index[index]
-        self.y = 500 + 250 * y1index[index]
-        self.x2 = 500 + 300 * x2index[index]
-        self.y2 = 500 + 300 * y2index[index]
+        #x1index = [-0.10, 1, -1, 0.10,]
+        #y1index = [-1, -0.25, 0.25, 1]
+        x1index = [-1, -0.95, 0.75, -0.5, 2.6, 1.05, 2.5, 2.5]
+        y1index = [0.5, -4, 1.5, -9, -0.5, -11, -6.5, -12]
+        #x2index = [-0.75, -1.05, -1.05, 0.75]
+        #y2index = [-0.3, -1, 1, 0.30]
+        self.x = 400 + 200 * x1index[index]
+        self.y = 700 + 50 * y1index[index]
+        #self.x2 = 500 + 300 * x2index[index]
+        #self.y2 = 500 + 300 * y2index[index]
         self.vehicles: List[Cars] = []
         self.sprite = Circle(Point(self.x, self.y), 15)
-        self.sprite.draw(win)
-
-        self.sprite = Circle(Point(self.x2, self.y2), 15)
         self.sprite.draw(win)
 
         self.queue_sprite = [[Customer(self.x, self.y, i, j) for j in range(15)] for i in range(4)]
@@ -161,9 +160,6 @@ class Station(RenderObject):
         num.setSize(18)
         num.draw(win)
 
-        num = Text(Point(self.x2, self.y2), f"{index + 1}")
-        num.setSize(18)
-        num.draw(win)
 
     def draw_queue(self, start):
         for qs in self.queue_sprite:
@@ -291,15 +287,15 @@ class Cars(RenderObject):
 
 class Price(object):
     def __init__(self):
-        self.price: List[List] = [[None for _ in range(4)] for _ in range(4)]
-        self.lines: List[List] = [[None for _ in range(4)] for _ in range(4)]
+        self.price: List[List] = [[None for _ in range(8)] for _ in range(8)]
+        self.lines: List[List] = [[None for _ in range(8)] for _ in range(8)]
 
         a = 0.1  # space between ends of arrow and stations
         b = 0.03  # arrow offset
         c = 0.05  # price offset
 
-        for src in range(4):
-            for dst in range(4):
+        for src in range(8):
+            for dst in range(8):
                 if src == dst:
                     continue
                 ssrc = stations[src]
@@ -309,7 +305,8 @@ class Price(object):
                 dy = sdst.y - ssrc.y
                 dx = sdst.x - ssrc.x
                 line = Line(psrc, pdst)
-                line.move(-dy * b, dx * b)
+                line.move(-dy * b , dx * b )
+
                 if (src == 2 and dst == 3) or (src == 3 and dst == 0) or (src == 3 and dst == 2) or (
                         src == 0 and dst == 3):
                     line.setArrow("first")
@@ -327,6 +324,7 @@ class Price(object):
                 self.lines[src][dst] = line
 
                 lc = line.getCenter()
+             
                 p = Text(Point(lc.x - dy * c, lc.y + dx * c), "$")
                 if (src == 0 and dst == 3) or (src == 3 and dst == 0):
                     p.setTextColor('blue')
@@ -337,9 +335,10 @@ class Price(object):
 
                 self.price[src][dst] = p
 
+
     def drawprice(self, price, _):
-        for src in range(4):
-            for dst in range(4):
+        for src in range(8):
+            for dst in range(8):
                 if src == dst:
                     continue
                 if (src == 2 and dst == 3) or (src == 3 and dst == 0) or (src == 3 and dst == 2) or (
@@ -466,7 +465,7 @@ if __name__ == "__main__":
     step = 0
     win = GraphWin("My demo", 1000, 1000)
 
-    stations = [Station(i, 4) for i in range(4)]
+    stations = [Station(i, 8) for i in range(8)]
     # smallnode = list(list())
     #
     # smallnode.append([small_node(stations[0], stations[3], i, 4) for i in range(3)])
@@ -514,7 +513,7 @@ if __name__ == "__main__":
         print('motion:',motion)
 
         Reward.drawreward(reward, start, step, info)
-        prices.drawprice(price, start)
+        #prices.drawprice(price, start)
         allqueue = container.get_queue(container.state)
         print('queue:', allqueue)
         for x in range(4):
